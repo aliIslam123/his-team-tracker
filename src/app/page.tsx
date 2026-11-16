@@ -167,16 +167,21 @@ export default function EvaluationFormPage() {
 
   if (success) {
     return (
-      <div className="relative flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="relative flex min-h-screen flex-col bg-background">
         {header}
-        <Card className="w-full max-w-md text-center">
-          <CardContent className="space-y-4 pt-8">
-            <CheckCircle2 className="mx-auto h-12 w-12 text-success" />
-            <h2 className="text-xl font-bold">{t("eval_submitted")}</h2>
-            <Button onClick={() => setSuccess(false)} className="w-full">{t("submit_another")}</Button>
-            <Link href="/dashboard" className="block text-sm text-primary hover:underline">{isAuthed ? t("dashboard") : t("admin_dashboard")}</Link>
-          </CardContent>
-        </Card>
+        <div className="flex flex-1 items-center justify-center p-4">
+          <Card className="w-full max-w-md text-center">
+            <CardContent className="space-y-4 pt-8">
+              <CheckCircle2 className="mx-auto h-12 w-12 text-success" />
+              <h2 className="text-xl font-bold">{t("eval_submitted")}</h2>
+              <Button onClick={() => setSuccess(false)} className="w-full">{t("submit_another")}</Button>
+              <Link href="/dashboard" className="block text-sm text-primary hover:underline">{isAuthed ? t("dashboard") : t("admin_dashboard")}</Link>
+            </CardContent>
+          </Card>
+        </div>
+        <footer className="border-t py-3 text-center text-xs text-muted-foreground no-print">
+          created by Ali Abuelsoud and Ismail Ali
+        </footer>
       </div>
     );
   }
@@ -184,8 +189,8 @@ export default function EvaluationFormPage() {
   const noResults = !selectedStaff && searchedFor && staffQuery.trim() === searchedFor && staffResults.length === 0;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="relative mx-auto max-w-xl space-y-4 p-4">
+    <div className="flex min-h-screen flex-col bg-background">
+      <div className="mx-auto w-full max-w-xl flex-1 space-y-4 p-4">
         <div className="relative py-4 text-center">
           {header}
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -335,6 +340,9 @@ export default function EvaluationFormPage() {
           <Link href="/history" className="block text-center text-sm text-primary hover:underline">{t("history")}</Link>
         </div>
       </div>
+      <footer className="border-t py-3 text-center text-xs text-muted-foreground no-print">
+        created by Ali Abuelsoud and Ismail Ali
+      </footer>
     </div>
   );
 }
