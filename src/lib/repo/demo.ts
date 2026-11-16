@@ -1,7 +1,13 @@
 import { DEMO_STAFF } from "@/data/demo-staff";
 import { ESCALATION_THRESHOLD, OPEN_ESCALATION_STATUSES, getOption, normalizeArabic, normalizeDigits, pointsFor } from "@/lib/evaluation";
+import { cleanText, compareBeds, normalizeLocation } from "@/lib/beds";
 import type {
   AuditRecord,
+  BedImportResult,
+  BedImportRow,
+  BedInput,
+  BedPatch,
+  BedRecord,
   Department,
   EscalationRecord,
   EscalationStatus,
@@ -38,6 +44,8 @@ interface DemoDB {
   escalations: EscalationRecord[];
   notifications: Notification[];
   audits: AuditRecord[];
+  /** Added later: absent in databases saved before the bed board existed. */
+  beds?: BedRecord[];
 }
 
 const FIXED_DATE = "2026-01-01T00:00:00.000Z";
@@ -207,6 +215,16 @@ function openEscalation(d: DemoDB, staff: StaffMember): EscalationRecord {
 
 function sameName(a: string, b: string) {
   return normalizeArabic(a) === normalizeArabic(b);
+}
+
+/* ---------- bed follow-up board ---------- */
+
+const bedsOf = (d: DemoDB): BedRecord[] => (d.beds ??= []);
+const bedKey = (location: string, bed_no: number) => `${location.toLowerCase()}|${bed_no}`;
+const validDate = (v: unknown): string | null => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+
+function assertBedNo(n: number) {
+  if (!Number.isInteger(n) || n < 1) throw new Error("invalid_bed");
 }
 
 /* ------------------------------------------------------------------ */
@@ -483,5 +501,116 @@ export const demoRepo: Repo = {
     audit(d, { action: "staff_import", entity_type: "import_job", entity_id: null, new_values: { file: _fileName, total: rows.length, imported, failed } });
     save();
     return { imported, failed };
+  },
+
+  /* ---------------- bed follow-up board ---------------- */
+
+  async listBeds() {
+    return bedsOf(db()).slice().sort(compareBeds);
+  },
+
+  async createBed(input: BedInput) {
+    const d = db();
+    const beds = bedsOf(d);
+    assertBedNo(input.bed_no);
+    const location = normalizeLocation(input.location);
+    if (beds.some((b) => bedKey(b.location, b.bed_no) === bedKey(location, input.bed_no))) throw new Error("duplicate_bed");
+    const bed: BedRecord = {
+      id: newId(), location, bed_no: input.bed_no, owner_name: cleanText(input.owner_name),
+      patient_name: cleanText(input.patient_name), notes: cleanText(input.notes),
+      dr_edit_date: null, nurse_edit_date: null, tasks: {}, updated_at: nowIso(), updated_by_name: actorName(),
+    };
+    beds.push(bed);
+    audit(d, { action: "bed_created", entity_type: "bed_followup", entity_id: bed.id, new_values: { location, bed_no: bed.bed_no } });
+    save();
+    return bed;
+  },
+
+  async updateBed(id, patch: BedPatch) {
+    const d = db();
+    const beds = bedsOf(d);
+    const bed = beds.find((b) => b.id === id);
+    if (!bed) throw new Error("bed_not_found");
+    const location = patch.location === undefined ? bed.location : normalizeLocation(patch.location);
+    const bed_no = patch.bed_no === undefined ? bed.bed_no : patch.bed_no;
+    assertBedNo(bed_no);
+    if (beds.some((b) => b.id !== id && bedKey(b.location, b.bed_no) === bedKey(location, bed_no))) throw new Error("duplicate_bed");
+    bed.location = location;
+    bed.bed_no = bed_no;
+    if (patch.owner_name !== undefined) bed.owner_name = cleanText(patch.owner_name);
+    if (patch.patient_name !== undefined) bed.patient_name = cleanText(patch.patient_name);
+    if (patch.notes !== undefined) bed.notes = cleanText(patch.notes);
+    if (patch.dr_edit_date !== undefined) bed.dr_edit_date = validDate(patch.dr_edit_date);
+    if (patch.nurse_edit_date !== undefined) bed.nurse_edit_date = validDate(patch.nurse_edit_date);
+    bed.updated_at = nowIso();
+    bed.updated_by_name = actorName();
+    save();
+  },
+
+  async setBedTasks(id, patch) {
+    const bed = bedsOf(db()).find((b) => b.id === id);
+    if (!bed) throw new Error("bed_not_found");
+    for (const [k, v] of Object.entries(patch)) {
+      if (!/^[a-z_]{1,32}$/.test(k) || typeof v !== "boolean") throw new Error("invalid_tasks");
+    }
+    bed.tasks = { ...bed.tasks, ...patch };
+    bed.updated_at = nowIso();
+    bed.updated_by_name = actorName();
+    save();
+  },
+
+  async dischargeBed(id) {
+    const d = db();
+    const bed = bedsOf(d).find((b) => b.id === id);
+    if (!bed) throw new Error("bed_not_found");
+    bed.patient_name = "";
+    bed.notes = "";
+    bed.dr_edit_date = null;
+    bed.nurse_edit_date = null;
+    bed.tasks = {};
+    bed.updated_at = nowIso();
+    bed.updated_by_name = actorName();
+    // the audit trail records which bed was cleared, never the patient's name
+    audit(d, { action: "bed_discharged", entity_type: "bed_followup", entity_id: id, new_values: { location: bed.location, bed_no: bed.bed_no } });
+    save();
+  },
+
+  async deleteBed(id) {
+    const d = db();
+    const beds = bedsOf(d);
+    const i = beds.findIndex((b) => b.id === id);
+    if (i < 0) throw new Error("bed_not_found");
+    const [bed] = beds.splice(i, 1);
+    audit(d, { action: "bed_deleted", entity_type: "bed_followup", entity_id: id, new_values: { location: bed.location, bed_no: bed.bed_no } });
+    save();
+  },
+
+  async importBeds(rows: BedImportRow[], fileName: string): Promise<BedImportResult> {
+    const d = db();
+    const beds = bedsOf(d);
+    const byKey = new Map(beds.map((b) => [bedKey(b.location, b.bed_no), b]));
+    let created = 0;
+    let updated = 0;
+    const t = nowIso();
+    const by = actorName();
+    for (const r of rows) {
+      const existing = byKey.get(bedKey(r.location, r.bed_no));
+      if (existing) {
+        Object.assign(existing, {
+          owner_name: r.owner_name, patient_name: r.patient_name, notes: r.notes,
+          dr_edit_date: r.dr_edit_date, nurse_edit_date: r.nurse_edit_date, tasks: { ...r.tasks },
+          updated_at: t, updated_by_name: by,
+        });
+        updated++;
+      } else {
+        const bed: BedRecord = { id: newId(), ...r, tasks: { ...r.tasks }, updated_at: t, updated_by_name: by };
+        beds.push(bed);
+        byKey.set(bedKey(bed.location, bed.bed_no), bed);
+        created++;
+      }
+    }
+    audit(d, { action: "beds_import", entity_type: "import_job", entity_id: null, new_values: { file: fileName, total: rows.length, created, updated } });
+    save();
+    return { created, updated, failed: 0 };
   },
 };

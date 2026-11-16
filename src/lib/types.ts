@@ -288,3 +288,53 @@ export interface ImportResult {
   imported: number;
   failed: number;
 }
+
+/* ------------------------------------------------------------------ */
+/* Bed follow-up board (src/lib/beds.ts holds the task list)           */
+/* ------------------------------------------------------------------ */
+
+/** One bed on the follow-up board = one row of the old Google/Excel sheet. */
+export interface BedRecord {
+  id: string;
+  location: string;
+  bed_no: number;
+  owner_name: string;
+  patient_name: string;
+  notes: string;
+  /** Last date a doctor edited the patient file in the HIS (YYYY-MM-DD). */
+  dr_edit_date: string | null;
+  /** Last date a nurse edited the patient file in the HIS (YYYY-MM-DD). */
+  nurse_edit_date: string | null;
+  /** { task_key: done } — keys are defined in BED_TASKS. A missing key means "not done". */
+  tasks: Record<string, boolean>;
+  updated_at: string;
+  updated_by_name: string | null;
+}
+
+export interface BedInput {
+  location: string;
+  bed_no: number;
+  owner_name: string;
+  patient_name?: string;
+  notes?: string;
+}
+
+export type BedPatch = Partial<Pick<BedRecord, "location" | "bed_no" | "owner_name" | "patient_name" | "notes" | "dr_edit_date" | "nurse_edit_date">>;
+
+/** A row read from the old sheet, ready to be created / merged into the board. */
+export interface BedImportRow {
+  location: string;
+  bed_no: number;
+  owner_name: string;
+  patient_name: string;
+  notes: string;
+  dr_edit_date: string | null;
+  nurse_edit_date: string | null;
+  tasks: Record<string, boolean>;
+}
+
+export interface BedImportResult {
+  created: number;
+  updated: number;
+  failed: number;
+}

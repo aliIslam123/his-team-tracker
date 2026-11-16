@@ -1,7 +1,11 @@
 import { createClient } from "@/lib/supabase/client";
 import { OPEN_ESCALATION_STATUSES } from "@/lib/evaluation";
+import { cleanText, normalizeLocation } from "@/lib/beds";
 import type {
   AuditRecord,
+  BedImportResult,
+  BedImportRow,
+  BedRecord,
   Department,
   EscalationRecord,
   EvaluationRecord,
@@ -79,6 +83,23 @@ const mapEscalation = (r: any): EscalationRecord => ({
   created_at: r.created_at,
   reviewed_at: r.reviewed_at,
 });
+
+const mapBed = (r: any): BedRecord => ({
+  id: r.id,
+  location: r.location ?? "",
+  bed_no: r.bed_no,
+  owner_name: r.owner_name ?? "",
+  patient_name: r.patient_name ?? "",
+  notes: r.notes ?? "",
+  dr_edit_date: r.dr_edit_date ?? null,
+  nurse_edit_date: r.nurse_edit_date ?? null,
+  tasks: r.tasks && typeof r.tasks === "object" ? (r.tasks as Record<string, boolean>) : {},
+  updated_at: r.updated_at,
+  updated_by_name: r.updater?.full_name ?? null,
+});
+
+// bed_followups has two foreign keys to profiles (created_by, updated_by), so the embed must name the one it wants
+const BED_SELECT = "*, updater:profiles!updated_by(full_name)";
 
 async function writeAudit(entry: { action: string; entity_type: string; entity_id: string | null; previous_values?: unknown; new_values?: unknown; reason?: string | null }) {
   const actor = await currentUserId();
@@ -382,5 +403,126 @@ export const liveRepo: Repo = {
     }
     await writeAudit({ action: "staff_import", entity_type: "import_job", entity_id: (job as any)?.id ?? null, new_values: { file: fileName, total: rows.length, imported, failed } });
     return { imported, failed };
+  },
+
+  /* ---------------- bed follow-up board ---------------- */
+
+  async listBeds() {
+    const rows = await fetchAll<any>((from, to) =>
+      sb().from("bed_followups").select(BED_SELECT).order("bed_no").order("location").order("id").range(from, to) as any
+    );
+    return rows.map(mapBed);
+  },
+
+  async createBed(input) {
+    if (!Number.isInteger(input.bed_no) || input.bed_no < 1) throw new Error("invalid_bed");
+    const uid = await currentUserId();
+    const { data, error } = await sb()
+      .from("bed_followups")
+      .insert({
+        location: normalizeLocation(input.location),
+        bed_no: input.bed_no,
+        owner_name: cleanText(input.owner_name),
+        patient_name: cleanText(input.patient_name),
+        notes: cleanText(input.notes),
+        created_by: uid,
+        updated_by: uid,
+      })
+      .select(BED_SELECT)
+      .single();
+    if (error) {
+      if (error.code === "23505") throw new Error("duplicate_bed");
+      fail(error);
+    }
+    const bed = mapBed(data);
+    await writeAudit({ action: "bed_created", entity_type: "bed_followup", entity_id: bed.id, new_values: { location: bed.location, bed_no: bed.bed_no } });
+    return bed;
+  },
+
+  async updateBed(id, patch) {
+    const uid = await currentUserId();
+    const row: Record<string, unknown> = { updated_by: uid };
+    if (patch.location !== undefined) row.location = normalizeLocation(patch.location);
+    if (patch.bed_no !== undefined) {
+      if (!Number.isInteger(patch.bed_no) || patch.bed_no < 1) throw new Error("invalid_bed");
+      row.bed_no = patch.bed_no;
+    }
+    if (patch.owner_name !== undefined) row.owner_name = cleanText(patch.owner_name);
+    if (patch.patient_name !== undefined) row.patient_name = cleanText(patch.patient_name);
+    if (patch.notes !== undefined) row.notes = cleanText(patch.notes);
+    if (patch.dr_edit_date !== undefined) row.dr_edit_date = patch.dr_edit_date || null;
+    if (patch.nurse_edit_date !== undefined) row.nurse_edit_date = patch.nurse_edit_date || null;
+    const { data, error } = await sb().from("bed_followups").update(row).eq("id", id).select("id");
+    if (error) {
+      if (error.code === "23505") throw new Error("duplicate_bed");
+      fail(error);
+    }
+    if (!data || data.length === 0) throw new Error("bed_not_found");
+  },
+
+  async setBedTasks(id, patch) {
+    // one atomic UPDATE on the server (see patch_bed_tasks in 0004): concurrent ticks never overwrite each other
+    const { error } = await sb().rpc("patch_bed_tasks", { p_bed_id: id, p_patch: patch });
+    if (error) fail(error);
+  },
+
+  async dischargeBed(id) {
+    const uid = await currentUserId();
+    const { data, error } = await sb()
+      .from("bed_followups")
+      .update({ patient_name: "", notes: "", dr_edit_date: null, nurse_edit_date: null, tasks: {}, updated_by: uid })
+      .eq("id", id)
+      .select("location, bed_no");
+    if (error) fail(error);
+    if (!data || data.length === 0) throw new Error("bed_not_found");
+    // the audit trail records which bed was cleared, never the patient's name
+    await writeAudit({ action: "bed_discharged", entity_type: "bed_followup", entity_id: id, new_values: { location: (data[0] as any).location, bed_no: (data[0] as any).bed_no } });
+  },
+
+  async deleteBed(id) {
+    const { data, error } = await sb().from("bed_followups").delete().eq("id", id).select("location, bed_no");
+    if (error) fail(error);
+    // RLS lets only admin/supervisor delete; a blocked delete affects 0 rows instead of raising
+    if (!data || data.length === 0) throw new Error("not_allowed");
+    await writeAudit({ action: "bed_deleted", entity_type: "bed_followup", entity_id: id, new_values: { location: (data[0] as any).location, bed_no: (data[0] as any).bed_no } });
+  },
+
+  async importBeds(rows: BedImportRow[], fileName: string): Promise<BedImportResult> {
+    const uid = await currentUserId();
+    const existing = await fetchAll<any>((from, to) =>
+      sb().from("bed_followups").select("location, bed_no").order("id").range(from, to) as any
+    );
+    const have = new Set(existing.map((r) => `${String(r.location).toLowerCase()}|${r.bed_no}`));
+    const isNew = (r: BedImportRow) => !have.has(`${r.location.toLowerCase()}|${r.bed_no}`);
+
+    const base = (r: BedImportRow) => ({
+      location: r.location, bed_no: r.bed_no, owner_name: r.owner_name, patient_name: r.patient_name, notes: r.notes,
+      dr_edit_date: r.dr_edit_date, nurse_edit_date: r.nurse_edit_date, tasks: r.tasks, updated_by: uid,
+    });
+    // created_by is only set on rows that do not exist yet, so re-importing never overwrites who created a bed
+    const toRow = (r: BedImportRow) => (isNew(r) ? { ...base(r), created_by: uid } : base(r));
+
+    let created = 0;
+    let updated = 0;
+    let failed = 0;
+    const upsert = (batch: BedImportRow[]) =>
+      sb().from("bed_followups").upsert(batch.map(toRow), { onConflict: "location,bed_no" });
+
+    for (const group of [rows.filter(isNew), rows.filter((r) => !isNew(r))]) {
+      const fresh = group.length > 0 && isNew(group[0]);
+      const CHUNK = 100;
+      for (let i = 0; i < group.length; i += CHUNK) {
+        const chunk = group.slice(i, i + CHUNK);
+        const { error } = await upsert(chunk);
+        if (!error) { if (fresh) created += chunk.length; else updated += chunk.length; continue; }
+        // one bad row fails the whole batch → retry row by row so a single problem does not block the rest
+        for (const r of chunk) {
+          const { error: e2 } = await upsert([r]);
+          if (e2) failed++; else if (fresh) created++; else updated++;
+        }
+      }
+    }
+    await writeAudit({ action: "beds_import", entity_type: "import_job", entity_id: null, new_values: { file: fileName, total: rows.length, created, updated, failed } });
+    return { created, updated, failed };
   },
 };

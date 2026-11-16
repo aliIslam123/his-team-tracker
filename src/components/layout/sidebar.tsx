@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Users, ClipboardList, CalendarClock, AlertTriangle, BarChart3, Bell, Upload, ScrollText, Settings, LogOut,
+  LayoutDashboard, Users, ClipboardList, CalendarClock, BedDouble, AlertTriangle, BarChart3, Bell, Upload, ScrollText, Settings, LogOut,
 } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { useUser } from "@/components/providers/user-provider";
@@ -21,6 +21,7 @@ const NAV: NavItem[] = [
   { href: "/staff", key: "staff_directory", icon: Users },
   { href: "/history", key: "history", icon: ClipboardList },
   { href: "/followups", key: "followups", icon: CalendarClock },
+  { href: "/beds", key: "beds", icon: BedDouble },
   { href: "/escalations", key: "escalations", icon: AlertTriangle },
   { href: "/analytics", key: "analytics", icon: BarChart3 },
   { href: "/notifications", key: "notifications", icon: Bell },

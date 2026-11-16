@@ -1,5 +1,10 @@
 import type {
   AuditRecord,
+  BedImportResult,
+  BedImportRow,
+  BedInput,
+  BedPatch,
+  BedRecord,
   Department,
   EscalationRecord,
   EvaluationRecord,
@@ -62,4 +67,16 @@ export interface Repo {
 
   /* bulk import */
   importStaff(rows: ImportRowInput[], fileName: string): Promise<ImportResult>;
+
+  /* bed follow-up board (replaces the Google/Excel sheet) */
+  listBeds(): Promise<BedRecord[]>;
+  createBed(input: BedInput): Promise<BedRecord>;
+  updateBed(id: string, patch: BedPatch): Promise<void>;
+  /** Tick / untick one or many tasks. Merged atomically so two people never overwrite each other. */
+  setBedTasks(id: string, patch: Record<string, boolean>): Promise<void>;
+  /** Patient left: clears name, notes, dates and every tick (the bed itself stays). */
+  dischargeBed(id: string): Promise<void>;
+  deleteBed(id: string): Promise<void>;
+  /** Creates missing beds and overwrites existing ones (matched by location + bed number). */
+  importBeds(rows: BedImportRow[], fileName: string): Promise<BedImportResult>;
 }
