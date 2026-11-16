@@ -34,7 +34,7 @@ type Field = "full_name" | "job_type" | "his_user_id" | "legacy_status" | "depar
 function mapHeader(h: string): Field {
   const n = normalizeArabic(h);
   const toks = n.split(/[^a-z0-9\u0600-\u06ff]+/).filter(Boolean);
-  if (toks.includes("his") || /user ?id|user_id|userid|معرف|كود/.test(n)) return "his_user_id";
+  if (toks.includes("his") || /user ?id|user_id|userid|employee ?id|id ?الموظف|الموظف ?id|الرقم الوظيفي|معرف|كود/.test(n)) return "his_user_id";
   if (/department|\bdept\b|قسم/.test(n)) return "department";
   if (/legacy|status|حاله/.test(n)) return "legacy_status";
   if (/job|type|وظيفه/.test(n)) return "job_type";
