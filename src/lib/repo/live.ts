@@ -192,6 +192,11 @@ export const liveRepo: Repo = {
     if (error) fail(error);
   },
 
+  async clearEvaluations(id, reason) {
+    const { error } = await sb().rpc("clear_staff_evaluations", { p_staff_id: id, p_reason: reason ?? null });
+    if (error) fail(error);
+  },
+
   async listDepartments() {
     const { data, error } = await sb().from("departments").select("*").eq("is_active", true).order("name_ar");
     if (error) fail(error);

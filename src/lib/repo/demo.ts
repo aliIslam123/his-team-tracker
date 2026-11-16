@@ -363,6 +363,19 @@ export const demoRepo: Repo = {
     save();
   },
 
+  async clearEvaluations(id, reason) {
+    const d = db();
+    const s = d.staff.find((x) => x.id === id);
+    if (!s) throw new Error("staff_not_found");
+    const previous = s.manual_score;
+    const before = d.evaluations.length;
+    d.evaluations = d.evaluations.filter((e) => e.staff_member_id !== id);
+    s.manual_score = 0;
+    s.updated_at = nowIso();
+    audit(d, { action: "evaluations_cleared", entity_type: "staff_member", entity_id: id, previous_values: { manual_score: previous, evaluations: before }, new_values: { manual_score: 0, evaluations: 0 }, reason: reason ?? null });
+    save();
+  },
+
   async listDepartments() {
     return DEMO_DEPARTMENTS;
   },

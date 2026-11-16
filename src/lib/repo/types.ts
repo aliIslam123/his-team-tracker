@@ -39,6 +39,7 @@ export interface Repo {
   createStaff(input: StaffInput): Promise<StaffMember>;
   updateStaff(id: string, patch: StaffPatch): Promise<void>;
   resetScore(id: string, reason?: string): Promise<void>;
+  clearEvaluations(id: string, reason?: string): Promise<void>;
   listDepartments(): Promise<Department[]>;
 
   /* evaluations / follow-ups */

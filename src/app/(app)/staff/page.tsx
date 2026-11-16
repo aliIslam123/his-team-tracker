@@ -48,6 +48,7 @@ export default function StaffPage() {
   const [status, setStatus] = useState<StatusFilter>("all");
   const [page, setPage] = useState(0);
   const [resetTarget, setResetTarget] = useState<StaffMember | null>(null);
+  const [clearTarget, setClearTarget] = useState<StaffMember | null>(null);
   const [resetReason, setResetReason] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -87,6 +88,22 @@ export default function StaffPage() {
       await getRepo().resetScore(resetTarget.id, resetReason.trim() || undefined);
       toast.success(t("success"));
       setResetTarget(null);
+      setResetReason("");
+      reload();
+    } catch (err) {
+      toast.error(t(errorKey(err)));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const doClear = async () => {
+    if (!clearTarget) return;
+    setBusy(true);
+    try {
+      await getRepo().clearEvaluations(clearTarget.id, resetReason.trim() || undefined);
+      toast.success(t("success"));
+      setClearTarget(null);
       setResetReason("");
       reload();
     } catch (err) {
@@ -185,9 +202,11 @@ export default function StaffPage() {
                         <td className="p-2">
                           <div className="flex flex-wrap gap-1">
                             <Link href={`/staff/${s.id}`}><Button size="sm" variant="outline">{t("view_profile")}</Button></Link>
-                            <Link href={`/?staff=${s.id}`}><Button size="sm" variant="secondary">{t("evaluate")}</Button></Link>
+                            {canManage && (
+                              <Button size="sm" variant="destructive" onClick={() => setClearTarget(s)}>{t("reset_evaluations")}</Button>
+                            )}
                             {canManage && s.manual_score !== 0 && (
-                              <Button size="sm" variant="destructive" onClick={() => setResetTarget(s)}>{t("reset_score")}</Button>
+                              <Button size="sm" variant="outline" onClick={() => setResetTarget(s)}>{t("reset_score")}</Button>
                             )}
                           </div>
                         </td>
@@ -217,6 +236,19 @@ export default function StaffPage() {
         destructive
         busy={busy}
         onConfirm={doReset}
+      >
+        <Textarea aria-label={t("reason")} placeholder={t("reset_reason_placeholder")} value={resetReason} onChange={(e) => setResetReason(e.target.value)} />
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={!!clearTarget}
+        onOpenChange={(o) => { if (!o) { setClearTarget(null); setResetReason(""); } }}
+        title={t("reset_evaluations")}
+        description={clearTarget ? `${clearTarget.full_name} — ${t("reset_evaluations_warning")}` : ""}
+        confirmLabel={t("reset_evaluations")}
+        destructive
+        busy={busy}
+        onConfirm={doClear}
       >
         <Textarea aria-label={t("reason")} placeholder={t("reset_reason_placeholder")} value={resetReason} onChange={(e) => setResetReason(e.target.value)} />
       </ConfirmDialog>
