@@ -197,6 +197,7 @@ export default function EvaluationFormPage() {
           <img src="/logo.png" alt="" className="mx-auto mb-2 h-28 w-28 object-contain" />
           <h1 className="text-2xl font-bold">{t("form_title")}</h1>
           <p className="text-sm text-muted-foreground">{t("form_subtitle")}</p>
+          <p className="mt-2 text-xs text-muted-foreground">created by Ali Abuelsoud and Ismail Ali</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
