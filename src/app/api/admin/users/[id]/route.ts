@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ApiError, isManageableRole, requireUserManager, serviceClient, toErrorResponse } from "@/lib/server/admin";
+import { PERMISSION_KEYS, SUPER_ONLY_PERMISSIONS } from "@/lib/permissions";
 import type { Profile, UpdateUserInput } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +23,10 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
 
     if (caller.role === "hospital_admin" && caller.hospital_id !== t.hospital_id) throw new ApiError(403, "not_allowed");
     if (t.role === "super_admin" && caller.role !== "super_admin") throw new ApiError(403, "not_allowed");
+    // nobody edits their own account through this screen (role / permissions / hospital included)
+    if (id === caller.id && (patch.role !== undefined || patch.permissions !== undefined || patch.hospital_id !== undefined || patch.is_active !== undefined)) {
+      throw new ApiError(403, "not_allowed");
+    }
 
     const row: Record<string, unknown> = {};
     if (patch.full_name !== undefined) {
@@ -43,6 +48,18 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
       const { data: hospital } = await svc.from("hospitals").select("id,is_active").eq("id", patch.hospital_id).maybeSingle();
       if (!hospital || !(hospital as { is_active: boolean }).is_active) throw new ApiError(400, "invalid_hospital");
       row.hospital_id = patch.hospital_id;
+    }
+    if (patch.permissions !== undefined) {
+      if (caller.role !== "super_admin" && caller.role !== "hospital_admin") throw new ApiError(403, "not_allowed");
+      // only known keys, booleans only; the forced super-only keys are stripped so an override
+      // can never hand hospitals.manage / comparison.view to a lower role
+      const perms: Record<string, boolean> = {};
+      for (const [k, v] of Object.entries(patch.permissions ?? {})) {
+        if (!(PERMISSION_KEYS as readonly string[]).includes(k) || typeof v !== "boolean") continue;
+        if ((SUPER_ONLY_PERMISSIONS as string[]).includes(k)) continue;
+        perms[k] = v;
+      }
+      row.permissions = perms;
     }
 
     const { error: uErr } = await svc.from("profiles").update(row).eq("id", id);

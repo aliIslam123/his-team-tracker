@@ -13,7 +13,8 @@ Internal tool for tracking staff registration on the hospital HIS. Field team me
 | `/change-password` | تغيير كلمة المرور (إلزامي عند أول دخول أو بعد إعادة تعيين) |
 | `/dashboard` | أرقام عامة، من يحتاج انتباهًا، متابعات قادمة، تصعيدات، آخر التقييمات |
 | `/admin/hospitals` | إدارة المستشفيات (super_admin): إضافة/تعديل/إيقاف + رابط النموذج العام |
-| `/admin/users` | إدارة الحسابات داخل كل مستشفى: إنشاء/دور/إيقاف/إعادة تعيين كلمة المرور |
+| `/admin/users` | إدارة الحسابات داخل كل مستشفى: إنشاء/دور/صلاحيات/إيقاف/إعادة تعيين كلمة المرور |
+| `/admin/comparison` | مقارنة المستشفيات جنب بعض (super_admin): الموظفون، التقييمات، المتابعات، التصعيدات |
 | `/staff`, `/staff/[id]` | دليل الموظفين، الملف الشخصي، التعديل، تصفير النقاط، تصدير Excel |
 | `/history` | كل التقييمات مع فلاتر وتصدير |
 | `/followups` | المتابعات المجدولة (مفتوحة / متأخرة / مكتملة) |
@@ -30,6 +31,15 @@ Internal tool for tracking staff registration on the hospital HIS. Field team me
 - **super_admin** يرى كل المستشفيات (مبدّل مستشفى في الشريط العلوي) وينشئها من `/admin/hospitals`.
 - الأقسام تبقى عامة ومشتركة بين المستشفيات.
 - عند أول تشغيل لـ `0005` تُنقل البيانات الحالية كلها إلى أول مستشفى «عين شمس» (`slug: ain-shams`).
+
+### الصلاحيات (Permissions — المرحلة 2)
+
+- **مصدر واحد** لكل صلاحيات النظام: `src/lib/permissions.ts` في الواجهة، ودالة `public.has_permission()` في `supabase/migrations/0006_permissions.sql` في قاعدة البيانات. القائمتان متطابقتان بالضرورة.
+- الأدوار تحدد الـ **افتراضيات**: `super_admin` = الكل، `hospital_admin` = كل شيء عدا إدارة المستشفيات والمقارنة، `supervisor` = إدارة الموظفين/الاستيراد/المراجعات/المتابعات، `member` = لوحة التحليلات + تعديل الأسرّة المسندة له.
+- أي صلاحية قابلة للتعطيل/التفعيل **لكل مستخدم** من `/admin/users` (تعديل → «صلاحيات إضافية»): التبديلات تُحفظ كـ overrides في `profiles.permissions` وتفرضها الـ RLS نفسها — وليس مجرد إخفاء أزرار.
+- `hospitals.manage` و`comparison.view` مفتاحان **للـ super_admin فقط دائمًا** ولا يمكن تفعيلهما لدور أدنى عبر أي override.
+- **إسناد الموظفين**: كل موظف له «المهندس المسؤول» (`assigned_to`) — يُحدد من شاشة تعديل الموظف (حسابات member فقط، ومن نفس المستشفى).
+- **عزل سجل التقييمات للعضو**: كل عضو يرى فقط التقييمات التي سجّلها هو (`recorded_by`) **+** تقييمات الموظفين المسندين إليه. باقي الأدوار ترى مستشفى كاملًا.
 
 ### قواعد النقاط (Scoring)
 
@@ -60,8 +70,9 @@ npm run dev
    2. `supabase/migrations/0002_integration.sql`  ← دوال النموذج + إصلاحات أمنية
    3. `supabase/migrations/0004_bed_followups.sql`  ← متابعة الأسرّة (`/beds`)
    4. `supabase/migrations/0005_hospitals.sql`  ← **مستشفيات متعددة + حسابات بلا تسجيل ذاتي + RLS معزول**
-   5. `supabase/seed.sql` (الأقسام)
-   6. `supabase/seed_staff.sql` (قائمة الموظفين)
+   5. `supabase/migrations/0006_permissions.sql`  ← **نظام صلاحيات موحد + إسناد الموظفين + عزل سجل العضو + مقارنة المستشفيات**
+   6. `supabase/seed.sql` (الأقسام)
+   7. `supabase/seed_staff.sql` (قائمة الموظفين)
 2. **اقفل التسجيل الذاتي**: من لوحة Supabase → **Authentication → Providers → Email** أطفئ **Enable Sign-ups** (بذلك لا يمكن لأحد إنشاء حساب بنفسه؛ الحسابات تُنشأ من شاشة الأدمن فقط).
 3. أنشئ أول **super_admin** من **Authentication → Users** (أو دعه ينشأ من شاشة الأدمن لاحقًا)، ثم اربطه بالدور والمستشفى:
    ```sql
@@ -86,14 +97,16 @@ npm run lint
 ## بنية الكود
 
 ```
+src/lib/permissions.ts   — مفاتيح الصلاحيات + `can()` + `permissionsOf()` + `SUPER_ONLY` (مرحلة 2)
 src/lib/evaluation.ts   قواعد التقييم والنقاط (مصدر واحد) + دوال بحث عربي ورقم الهاتف
 src/lib/repo/           طبقة بيانات واحدة بواجهة واحدة: demo.ts (localStorage) و live.ts (Supabase)
 src/lib/i18n.ts         كل النصوص (عربي/إنجليزي)
 src/components/         layout (القائمة/الشريط/الحماية) + shared + ui
 src/lib/beds.ts         قائمة مهام متابعة الأسرّة (أطباء/تمريض) + قراءة الشيت القديم + ألوان التواريخ
 src/lib/server/admin.ts أدوات إدارة الحسابات (سيرفر فقط): مفتاح الخدمة + توليد كلمات المرور
-supabase/migrations/    0001 الجداول · 0002 الدوال والصلاحيات · 0004 متابعة الأسرّة · 0005 المستشفيات والـ RLS
-supabase/tests/         0005_rls_tests.sql اختبارات العزل (مستشفيان، داخل معاملة واحدة)
+src/hooks/use-require-permission.ts — حماة الصفحات للـ client-side (مرحلة 2)
+supabase/migrations/    0001 الجداول · 0002 الدوال والصلاحيات · 0004 متابعة الأسرّة · 0005 المستشفيات والـ RLS · 0006 الصلاحيات والمقارنة
+supabase/tests/         0005_rls_tests.sql اختبارات العزل (مستشفيان، داخل معاملة واحدة) · 0006_permissions_tests.sql اختبارات الصلاحيات
 ```
 
 كل الصفحات تقرأ وتكتب عبر `getRepo()` فقط، فما يُدخل في النموذج يظهر فورًا في الداشبورد وملف الموظف والمتابعات والتصعيدات والتحليلات.

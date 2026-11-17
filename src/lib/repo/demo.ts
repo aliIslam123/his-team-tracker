@@ -17,6 +17,7 @@ import type {
   FollowupRecord,
   FollowupStatus,
   Hospital,
+  HospitalComparison,
   ImportResult,
   ImportRowInput,
   Notification,
@@ -48,6 +49,8 @@ interface DemoUser {
   job_title: string | null;
   role: UserAccount["role"];
   hospital_id: string | null;
+  /** Per-user permission overrides ({ "staff.import": false, ... }) — same keys as src/lib/permissions.ts. */
+  permissions?: Record<string, boolean> | null;
   must_change_password: boolean;
   is_active: boolean;
   /** Demo accounts live in this browser only, so the password is kept here to allow sign-in. */
@@ -358,7 +361,7 @@ function randomPassword(): string {
 
 const toAccount = (u: DemoUser): UserAccount => ({
   id: u.id, username: u.username, email: `${u.username}@his.local`, full_name: u.full_name,
-  job_title: u.job_title, role: u.role, hospital_id: u.hospital_id, permissions: {},
+  job_title: u.job_title, role: u.role, hospital_id: u.hospital_id, permissions: u.permissions ?? {},
   must_change_password: u.must_change_password, is_active: u.is_active, created_at: u.created_at,
 });
 
@@ -431,9 +434,12 @@ export const demoRepo: Repo = {
 
     const points = pointsFor(input.result);
     const t = nowIso();
+    // mirrors submit_evaluation_h: a signed-in engineer submitting from the same browser is stamped
+    const recorder = readDemoSessionUser()?.id ?? null;
     d.evaluations.unshift({
       id: newId(), staff_member_id: staff.id, staff_name: staff.full_name, job_type: staff.job_type,
       reporter_name: input.reporterName.trim(), reporter_phone: input.reporterPhone, result: input.result,
+      recorded_by: recorder,
       points, notes: input.notes?.trim() || null, created_at: t,
     });
 
@@ -510,6 +516,39 @@ export const demoRepo: Repo = {
     save();
   },
 
+  async compareHospitals(): Promise<HospitalComparison[]> {
+    const d = db();
+    const today = new Date().toISOString().slice(0, 10);
+    const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
+    return hospitalsOf(d)
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, "ar"))
+      .map((h) => {
+        const staff = d.staff.filter((s) => rowHospital(s) === h.id && s.is_active);
+        const ids = new Set(staff.map((s) => s.id));
+        const evals = d.evaluations.filter((e) => ids.has(e.staff_member_id));
+        const openFollowups = d.followups.filter(
+          (f) => ids.has(f.staff_member_id) && f.status !== "completed" && f.status !== "cancelled"
+        );
+        return {
+          hospital_id: h.id,
+          hospital_name: h.name,
+          hospital_slug: h.slug,
+          hospital_active: h.is_active,
+          staff_total: staff.length,
+          staff_registered: staff.filter((s) => s.registration_status === "registered").length,
+          staff_pending: staff.filter((s) => s.registration_status !== "registered").length,
+          evaluations_total: evals.length,
+          evaluations_7d: evals.filter((e) => Date.parse(e.created_at) > weekAgo).length,
+          followups_open: openFollowups.length,
+          followups_overdue: openFollowups.filter((f) => f.due_date < today).length,
+          escalations_pending: d.escalations.filter(
+            (e) => ids.has(e.staff_member_id) && (OPEN_ESCALATION_STATUSES as readonly string[]).includes(e.status)
+          ).length,
+        };
+      });
+  },
+
   /* ---------------- engineer accounts (demo) ---------------- */
 
   async listUsers(hospitalId) {
@@ -547,6 +586,8 @@ export const demoRepo: Repo = {
     if (patch.job_title !== undefined) u.job_title = patch.job_title?.trim() || null;
     if (patch.role !== undefined) u.role = patch.role;
     if (patch.is_active !== undefined) u.is_active = patch.is_active;
+    // admins may change OTHERS' permission overrides (never their own — enforced in the UI + server route)
+    if (patch.permissions !== undefined) u.permissions = patch.permissions;
     audit(d, { action: "user_updated", entity_type: "profile", entity_id: id, previous_values: before, new_values: { ...patch } });
     save();
   },
@@ -597,6 +638,14 @@ export const demoRepo: Repo = {
     if (!s) throw new Error("staff_not_found");
     const his = patch.his_user_id === undefined ? s.his_user_id : patch.his_user_id?.trim() || null;
     if (his && d.staff.some((x) => x.id !== id && x.his_user_id === his)) throw new Error("duplicate_his_id");
+    // mirrors validate_staff_assignee(): assignee must be an active member of the same hospital
+    if (patch.assigned_to !== undefined && patch.assigned_to !== null) {
+      const u = usersOf(d).find((x) => x.id === patch.assigned_to);
+      if (!u) throw new Error("user_not_found");
+      if (!u.is_active) throw new Error("not_allowed");
+      if (u.hospital_id !== rowHospital(s)) throw new Error("invalid_hospital");
+      if (u.role !== "member") throw new Error("not_allowed");
+    }
     const before = { full_name: s.full_name, job_type: s.job_type, department_id: s.department_id, his_user_id: s.his_user_id, is_active: s.is_active };
     if (patch.full_name !== undefined) s.full_name = patch.full_name.replace(/\s+/g, " ").trim();
     if (patch.job_type !== undefined) s.job_type = patch.job_type;
@@ -604,6 +653,7 @@ export const demoRepo: Repo = {
     s.his_user_id = his;
     if (patch.is_active !== undefined) s.is_active = patch.is_active;
     if (patch.needs_review !== undefined) s.needs_review = patch.needs_review;
+    if (patch.assigned_to !== undefined) s.assigned_to = patch.assigned_to || null;
     s.updated_at = nowIso();
     s.updated_by = "demo-admin";
     audit(d, { action: "staff_updated", entity_type: "staff_member", entity_id: id, previous_values: before, new_values: { ...patch } });
@@ -641,6 +691,15 @@ export const demoRepo: Repo = {
 
   async listEvaluations(opts) {
     let list = db().evaluations.filter((e) => inScope(staffHospital(db(), e.staff_member_id)));
+    // mirrors interactions_select: a member sees what he recorded + evaluations of his assigned staff
+    const session = readDemoSessionUser();
+    if (session) {
+      const u = usersOf(db()).find((x) => x.id === session.id);
+      if (u?.role === "member") {
+        const assigned = new Set(db().staff.filter((s) => s.assigned_to === session.id).map((s) => s.id));
+        list = list.filter((e) => e.recorded_by === session.id || assigned.has(e.staff_member_id));
+      }
+    }
     if (opts?.staffId) list = list.filter((e) => e.staff_member_id === opts.staffId);
     list = list.slice().sort((a, b) => b.created_at.localeCompare(a.created_at));
     return opts?.limit ? list.slice(0, opts.limit) : list;

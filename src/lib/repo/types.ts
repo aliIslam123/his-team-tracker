@@ -12,6 +12,7 @@ import type {
   FollowupRecord,
   FollowupStatus,
   Hospital,
+  HospitalComparison,
   ImportResult,
   ImportRowInput,
   Notification,
@@ -51,6 +52,8 @@ export interface Repo {
   listHospitals(): Promise<Hospital[]>;
   createHospital(name: string): Promise<Hospital>;
   updateHospital(id: string, patch: { name?: string; is_active?: boolean }): Promise<void>;
+  /** super_admin only: per-hospital headline numbers for the comparison dashboard. */
+  compareHospitals(): Promise<HospitalComparison[]>;
 
   /* engineer accounts — created by an admin only (Route Handler + service role in live mode) */
   listUsers(hospitalId?: string): Promise<UserAccount[]>;

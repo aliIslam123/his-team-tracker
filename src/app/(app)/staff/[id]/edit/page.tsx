@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loading, PageHeader } from "@/components/shared";
 import { StaffForm } from "@/components/staff-form";
 import { useLoad } from "@/hooks/use-load";
-import { useRequireRole } from "@/hooks/use-require-role";
+import { useRequirePermission } from "@/hooks/use-require-permission";
 import { getRepo } from "@/lib/repo";
 import { errorKey } from "@/lib/errors";
 
@@ -15,7 +15,7 @@ export default function EditStaffPage() {
   const { id } = useParams<{ id: string }>();
   const { t } = useLanguage();
   const router = useRouter();
-  const allowed = useRequireRole(["super_admin", "hospital_admin", "supervisor"]);
+  const allowed = useRequirePermission("staff.manage");
   const [busy, setBusy] = useState(false);
   const { data: staff, loading } = useLoad(() => getRepo().getStaff(id), [id], allowed);
 

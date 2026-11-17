@@ -14,6 +14,7 @@ import type {
   FollowupRecord,
   FollowupStatus,
   Hospital,
+  HospitalComparison,
   ImportResult,
   ImportRowInput,
   Notification,
@@ -261,6 +262,12 @@ export const liveRepo: Repo = {
     if (error) fail(error);
   },
 
+  async compareHospitals(): Promise<HospitalComparison[]> {
+    const { data, error } = await sb().rpc("compare_hospitals");
+    if (error) fail(error);
+    return (data as HospitalComparison[]) ?? [];
+  },
+
   /* ---------------- engineer accounts (created by an admin only) ---------------- */
 
   async listUsers(hospitalId) {
@@ -291,12 +298,18 @@ export const liveRepo: Repo = {
 
   async listStaff() {
     return fetchAll<StaffMember>((from, to) =>
-      withScope(sb().from("staff_members").select("*, department:departments(*)").order("full_name")).range(from, to) as any
+      withScope(
+        sb().from("staff_members").select("*, department:departments(*), assignee:profiles!assigned_to(full_name)").order("full_name")
+      ).range(from, to) as any
     );
   },
 
   async getStaff(id) {
-    const { data } = await sb().from("staff_members").select("*, department:departments(*)").eq("id", id).maybeSingle();
+    const { data } = await sb()
+      .from("staff_members")
+      .select("*, department:departments(*), assignee:profiles!assigned_to(full_name)")
+      .eq("id", id)
+      .maybeSingle();
     return (data as StaffMember | null) ?? null;
   },
 
@@ -334,6 +347,7 @@ export const liveRepo: Repo = {
     if (patch.his_user_id !== undefined) row.his_user_id = patch.his_user_id?.trim() || null;
     if (patch.is_active !== undefined) row.is_active = patch.is_active;
     if (patch.needs_review !== undefined) row.needs_review = patch.needs_review;
+    if (patch.assigned_to !== undefined) row.assigned_to = patch.assigned_to || null;
     const { error } = await sb().from("staff_members").update(row).eq("id", id);
     if (error) {
       if (error.code === "23505") throw new Error("duplicate_his_id");

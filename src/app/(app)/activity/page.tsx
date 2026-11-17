@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState, Loading, PageHeader } from "@/components/shared";
 import { useLoad } from "@/hooks/use-load";
-import { useRequireRole } from "@/hooks/use-require-role";
+import { useRequirePermission } from "@/hooks/use-require-permission";
 import { getRepo } from "@/lib/repo";
 import { formatDateTime } from "@/lib/format";
 
@@ -23,7 +23,7 @@ function summarize(v: Record<string, unknown> | null): string {
 
 export default function ActivityLogPage() {
   const { t, lang } = useLanguage();
-  const allowed = useRequireRole(["super_admin", "hospital_admin", "supervisor"]);
+  const allowed = useRequirePermission("activity.view");
   const [q, setQ] = useState("");
   const { data, loading, error } = useLoad(() => getRepo().listAudits(500), [], allowed);
 

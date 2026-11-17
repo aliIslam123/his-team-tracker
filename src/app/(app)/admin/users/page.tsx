@@ -3,7 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Copy, KeyRound, Pencil, Plus, UserRound } from "lucide-react";
 import { useLoad } from "@/hooks/use-load";
-import { useRequireRole } from "@/hooks/use-require-role";
+import { useRequirePermission } from "@/hooks/use-require-permission";
 import { useLanguage } from "@/components/providers/language-provider";
 import { useUser } from "@/components/providers/user-provider";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PageHeader, Loading, EmptyState } from "@/components/shared";
 import { getRepo } from "@/lib/repo";
 import { errorKey } from "@/lib/errors";
+import { can, PERMISSION_KEYS, PERMISSION_LABEL_KEY, ROLE_PERMISSION_DEFAULTS, SUPER_ONLY_PERMISSIONS, type PermissionKey } from "@/lib/permissions";
 import type { Role, UserAccount } from "@/lib/types";
 
 const ROLE_KEYS: Record<Role, string> = {
@@ -27,6 +28,18 @@ const ROLE_KEYS: Record<Role, string> = {
 };
 
 const ALL_ROLES: Role[] = ["super_admin", "hospital_admin", "supervisor", "member"];
+
+/** Keys an admin may toggle on another user (the super-only ones are never editable here). */
+const TOGGLEABLE: PermissionKey[] = PERMISSION_KEYS.filter(
+  (k) => !(SUPER_ONLY_PERMISSIONS as string[]).includes(k)
+);
+
+/** WYSIWYG: the effective permissions of an account, ready to fill the checkboxes. */
+function effectivePerms(u: UserAccount): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  for (const k of TOGGLEABLE) out[k] = can(u.role, k, u.permissions);
+  return out;
+}
 
 /** The password dialog: shown exactly once, right after creating an account or resetting a password. */
 function PasswordDialog({ password, onClose }: { password: string | null; onClose: () => void }) {
@@ -67,7 +80,7 @@ function PasswordDialog({ password, onClose }: { password: string | null; onClos
 
 /** hospital_admin + super_admin: create engineer accounts, set roles, deactivate, reset passwords. */
 export default function UsersAdminPage() {
-  const allowed = useRequireRole(["super_admin", "hospital_admin"]);
+  const allowed = useRequirePermission("users.manage");
   const { t } = useLanguage();
   const { isSuper, profile, hospitals } = useUser();
 
@@ -86,6 +99,8 @@ export default function UsersAdminPage() {
   const [form, setForm] = useState({ username: "", full_name: "", job_title: "", role: "member" as Role, must_change_password: true });
   const [shownPassword, setShownPassword] = useState<string | null>(null);
   const [edit, setEdit] = useState<UserAccount | null>(null);
+  const [permState, setPermState] = useState<Record<string, boolean>>({});
+  const [showPerms, setShowPerms] = useState(false);
   const [deactivate, setDeactivate] = useState<UserAccount | null>(null);
   const [resetTarget, setResetTarget] = useState<UserAccount | null>(null);
 
@@ -117,6 +132,12 @@ export default function UsersAdminPage() {
     }
   };
 
+  const openEdit = (u: UserAccount) => {
+    setEdit(u);
+    setPermState(effectivePerms(u));
+    setShowPerms(false);
+  };
+
   const submitEdit = async () => {
     if (!edit) return;
     setBusy(true);
@@ -125,6 +146,8 @@ export default function UsersAdminPage() {
         full_name: edit.full_name,
         job_title: edit.job_title,
         role: edit.role,
+        // WYSIWYG overrides: what the checkboxes show is exactly what gets stored
+        permissions: permState,
       });
       toast.success(t("saved"));
       setEdit(null);
@@ -230,7 +253,7 @@ export default function UsersAdminPage() {
                   </td>
                   <td className="p-3">
                     <div className="flex flex-wrap gap-1">
-                      <Button type="button" variant="outline" size="sm" onClick={() => setEdit(u)}>
+                      <Button type="button" variant="outline" size="sm" onClick={() => openEdit(u)}>
                         <Pencil className="h-4 w-4" /> {t("edit")}
                       </Button>
                       <Button type="button" variant="outline" size="sm" onClick={() => setResetTarget(u)}>
@@ -318,7 +341,15 @@ export default function UsersAdminPage() {
               </div>
               <div className="space-y-1">
                 <Label>{t("select_role")}</Label>
-                <Select value={edit.role} onValueChange={(v) => setEdit({ ...edit, role: v as Role })}>
+                <Select
+                  value={edit.role}
+                  onValueChange={(v) => {
+                    const role = v as Role;
+                    setEdit({ ...edit, role });
+                    // switching role resets the checkboxes to the new role's defaults
+                    setPermState(effectivePerms({ ...edit, role, permissions: null }));
+                  }}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {roleOptions.map((r) => (
@@ -327,6 +358,38 @@ export default function UsersAdminPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {/* permission overrides — defaults come from the role; toggles are saved for this user only */}
+              {edit.role !== "super_admin" && (
+                <div className="space-y-2 rounded-lg border p-3">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between text-sm font-medium"
+                    onClick={() => setShowPerms((v) => !v)}
+                  >
+                    {t("permissions")}
+                    <span className="text-xs text-muted-foreground">{showPerms ? "−" : "+"}</span>
+                  </button>
+                  {showPerms && (
+                    <>
+                      <p className="text-xs text-muted-foreground">{t("permissions_hint")}</p>
+                      <div className="grid gap-1.5 sm:grid-cols-2">
+                        {TOGGLEABLE.map((k) => (
+                          <label key={k} className="flex items-center gap-2 text-sm">
+                            <Checkbox
+                              checked={permState[k] === true}
+                              onCheckedChange={(v) => setPermState({ ...permState, [k]: v === true })}
+                            />
+                            {t(PERMISSION_LABEL_KEY[k])}
+                          </label>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {ROLE_PERMISSION_DEFAULTS[edit.role].length} {t("perm_by_default")}
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           )}
           <DialogFooter className="gap-2">

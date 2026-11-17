@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loading, PageHeader } from "@/components/shared";
-import { useRequireRole } from "@/hooks/use-require-role";
+import { useRequirePermission } from "@/hooks/use-require-permission";
 import { getRepo } from "@/lib/repo";
 import { normalizeArabic } from "@/lib/evaluation";
 import { JOB_TYPES } from "@/lib/validations";
@@ -86,7 +86,7 @@ interface Parsed {
 
 export default function ImportPage() {
   const { t } = useLanguage();
-  const allowed = useRequireRole(["super_admin", "hospital_admin", "supervisor"]);
+  const allowed = useRequirePermission("staff.import");
   const fileRef = useRef<HTMLInputElement>(null);
   const [parsed, setParsed] = useState<Parsed | null>(null);
   const [includePossible, setIncludePossible] = useState(true);

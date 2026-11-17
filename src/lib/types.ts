@@ -59,6 +59,8 @@ export interface CreateUserInput {
 export type UpdateUserInput = Partial<Pick<UserAccount, "full_name" | "job_title" | "role" | "is_active">> & {
   /** super_admin only: move an account to another hospital. */
   hospital_id?: string;
+  /** Per-user permission overrides (keys of PERMISSION_KEYS). Admins may change others, never themselves. */
+  permissions?: Record<string, boolean> | null;
 };
 
 export interface Department {
@@ -76,6 +78,9 @@ export interface StaffMember {
   job_type: JobType;
   department_id: string | null;
   his_user_id: string | null;
+  /** The member account responsible for this staff member (drives the member's history scope). */
+  assigned_to?: string | null;
+  assignee?: { full_name: string } | null;
   legacy_status: string | null;
   legacy_status_reviewed: boolean;
   is_active: boolean;
@@ -247,6 +252,8 @@ export interface StaffInput {
 export interface StaffPatch extends Partial<StaffInput> {
   is_active?: boolean;
   needs_review?: boolean;
+  /** member account responsible for this staff member (null = unassign) */
+  assigned_to?: string | null;
 }
 
 /** One evaluation of a staff member, as submitted from the public form. */
@@ -257,6 +264,8 @@ export interface EvaluationRecord {
   job_type: string;
   reporter_name: string;
   reporter_phone: string;
+  /** Signed-in engineer who recorded it (null for anonymous public-form submissions). */
+  recorded_by?: string | null;
   result: string;
   points: number;
   notes: string | null;
@@ -386,4 +395,24 @@ export interface BedImportResult {
   created: number;
   updated: number;
   failed: number;
+}
+
+/* ------------------------------------------------------------------ */
+/* Comparison dashboard (super_admin only, from compare_hospitals())   */
+/* ------------------------------------------------------------------ */
+
+/** One hospital's headline numbers, as shown on the comparison dashboard. */
+export interface HospitalComparison {
+  hospital_id: string;
+  hospital_name: string;
+  hospital_slug: string;
+  hospital_active: boolean;
+  staff_total: number;
+  staff_registered: number;
+  staff_pending: number;
+  evaluations_total: number;
+  evaluations_7d: number;
+  followups_open: number;
+  followups_overdue: number;
+  escalations_pending: number;
 }

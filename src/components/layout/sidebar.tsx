@@ -2,33 +2,34 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Users, ClipboardList, CalendarClock, BedDouble, AlertTriangle, BarChart3, Bell, Upload, ScrollText, Settings, LogOut, Building2, UserCog,
+  LayoutDashboard, Users, ClipboardList, CalendarClock, BedDouble, AlertTriangle, BarChart3, Bell, Upload, ScrollText, Settings, LogOut, Building2, UserCog, GitCompareArrows,
 } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { useUser } from "@/components/providers/user-provider";
+import { can, type PermissionKey } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
-import type { Role } from "@/lib/types";
 
 interface NavItem {
   href: string;
   key: string;
   icon: React.ComponentType<{ className?: string }>;
-  roles?: Role[];
+  permission?: PermissionKey;
 }
 
 const NAV: NavItem[] = [
-  { href: "/dashboard", key: "dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", key: "dashboard", icon: LayoutDashboard, permission: "analytics.view" },
   { href: "/staff", key: "staff_directory", icon: Users },
   { href: "/history", key: "history", icon: ClipboardList },
   { href: "/followups", key: "followups", icon: CalendarClock },
   { href: "/beds", key: "beds", icon: BedDouble },
   { href: "/escalations", key: "escalations", icon: AlertTriangle },
-  { href: "/analytics", key: "analytics", icon: BarChart3 },
+  { href: "/analytics", key: "analytics", icon: BarChart3, permission: "analytics.view" },
   { href: "/notifications", key: "notifications", icon: Bell },
-  { href: "/import", key: "import_staff", icon: Upload, roles: ["super_admin", "hospital_admin", "supervisor"] },
-  { href: "/activity", key: "activity_logs", icon: ScrollText, roles: ["super_admin", "hospital_admin", "supervisor"] },
-  { href: "/admin/hospitals", key: "hospitals", icon: Building2, roles: ["super_admin"] },
-  { href: "/admin/users", key: "users", icon: UserCog, roles: ["super_admin", "hospital_admin"] },
+  { href: "/import", key: "import_staff", icon: Upload, permission: "staff.import" },
+  { href: "/activity", key: "activity_logs", icon: ScrollText, permission: "activity.view" },
+  { href: "/admin/hospitals", key: "hospitals", icon: Building2, permission: "hospitals.manage" },
+  { href: "/admin/users", key: "users", icon: UserCog, permission: "users.manage" },
+  { href: "/admin/comparison", key: "comparison", icon: GitCompareArrows, permission: "comparison.view" },
   { href: "/settings", key: "settings", icon: Settings },
 ];
 
@@ -36,8 +37,8 @@ const NAV: NavItem[] = [
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { t } = useLanguage();
-  const { role, signOut, formHref } = useUser();
-  const items = NAV.filter((i) => !i.roles || (role && i.roles.includes(role)));
+  const { role, permissions, signOut, formHref } = useUser();
+  const items = NAV.filter((i) => !i.permission || can(role, i.permission, permissions));
 
   return (
     <div className="flex h-full flex-col">

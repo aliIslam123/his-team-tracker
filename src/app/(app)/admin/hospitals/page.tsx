@@ -4,7 +4,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Copy, ExternalLink, Pencil, Plus } from "lucide-react";
 import { useLoad } from "@/hooks/use-load";
-import { useRequireRole } from "@/hooks/use-require-role";
+import { useRequirePermission } from "@/hooks/use-require-permission";
 import { useLanguage } from "@/components/providers/language-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,7 @@ import type { Hospital } from "@/lib/types";
 
 /** super_admin: every hospital of the system (add / rename / enable-disable) + its public form link. */
 export default function HospitalsAdminPage() {
-  const allowed = useRequireRole(["super_admin"]);
+  const allowed = useRequirePermission("hospitals.manage");
   const { t } = useLanguage();
   const { data: hospitals, loading, reload } = useLoad(() => getRepo().listHospitals(), [], allowed);
 

@@ -75,7 +75,10 @@ export default function StaffProfilePage() {
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">{staff.full_name.charAt(0)}</div>
           <div>
             <h1 className="text-xl font-bold">{staff.full_name}</h1>
-            <p className="text-sm text-muted-foreground">{staff.job_type}</p>
+            <p className="text-sm text-muted-foreground">
+              {staff.job_type}
+              {staff.assignee?.full_name ? ` · ${t("assignee")}: ${staff.assignee.full_name}` : ""}
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
