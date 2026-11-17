@@ -1,6 +1,7 @@
 import { DEMO_STAFF } from "@/data/demo-staff";
 import { ESCALATION_THRESHOLD, OPEN_ESCALATION_STATUSES, getOption, normalizeArabic, normalizeDigits, pointsFor } from "@/lib/evaluation";
 import { cleanText, compareBeds, normalizeLocation } from "@/lib/beds";
+import { slugifyName } from "@/lib/slug";
 import type {
   AuditRecord,
   BedImportResult,
@@ -8,12 +9,14 @@ import type {
   BedInput,
   BedPatch,
   BedRecord,
+  CreateUserInput,
   Department,
   EscalationRecord,
   EscalationStatus,
   EvaluationRecord,
   FollowupRecord,
   FollowupStatus,
+  Hospital,
   ImportResult,
   ImportRowInput,
   Notification,
@@ -24,6 +27,8 @@ import type {
   StaffPatch,
   SubmitEvaluationInput,
   SubmitEvaluationResult,
+  UpdateUserInput,
+  UserAccount,
 } from "@/lib/types";
 import type { Repo } from "@/lib/repo/types";
 
@@ -32,9 +37,23 @@ import type { Repo } from "@/lib/repo/types";
 /* ------------------------------------------------------------------ */
 
 export const DEMO_DB_KEY = "his_demo_db_v2";
-import { DEMO_SESSION_KEY } from "@/lib/demo-auth";
+import { DEMO_SESSION_KEY, DEMO_PASS, DEMO_USER } from "@/lib/demo-auth";
 const LEGACY_SCORES_KEY = "his_demo_scores";
 const LEGACY_AUDIT_KEY = "his_demo_audit";
+
+interface DemoUser {
+  id: string;
+  username: string;
+  full_name: string;
+  job_title: string | null;
+  role: UserAccount["role"];
+  hospital_id: string | null;
+  must_change_password: boolean;
+  is_active: boolean;
+  /** Demo accounts live in this browser only, so the password is kept here to allow sign-in. */
+  password: string;
+  created_at: string;
+}
 
 interface DemoDB {
   v: 2;
@@ -46,6 +65,9 @@ interface DemoDB {
   audits: AuditRecord[];
   /** Added later: absent in databases saved before the bed board existed. */
   beds?: BedRecord[];
+  /** Added in 0005: hospitals + admin-created engineer accounts. */
+  hospitals?: Hospital[];
+  users?: DemoUser[];
 }
 
 const FIXED_DATE = "2026-01-01T00:00:00.000Z";
@@ -56,6 +78,8 @@ export const DEMO_DEPARTMENTS: Department[] = [
   { id: "demo-dept-4", name_ar: "التمريض", name_en: "Nursing", is_active: true, created_at: FIXED_DATE },
   { id: "demo-dept-5", name_ar: "الإدارة", name_en: "Administration", is_active: true, created_at: FIXED_DATE },
 ];
+
+export const DEMO_MAIN_HOSPITAL_ID = "demo-hospital-1";
 
 const nowIso = () => new Date().toISOString();
 const newId = () =>
@@ -75,6 +99,7 @@ function buildSeed(): DemoDB {
   const t = nowIso();
   const staff: StaffMember[] = DEMO_STAFF.map(([full_name, job_type, his, legacy, review], i) => ({
     id: `demo-${i}`,
+    hospital_id: DEMO_MAIN_HOSPITAL_ID,
     full_name,
     job_type,
     department_id: null,
@@ -90,7 +115,32 @@ function buildSeed(): DemoDB {
     created_by: null,
     updated_by: null,
   }));
-  const db: DemoDB = { v: 2, staff, evaluations: [], followups: [], escalations: [], notifications: [], audits: [] };
+  const db: DemoDB = {
+    v: 2,
+    staff,
+    evaluations: [],
+    followups: [],
+    escalations: [],
+    notifications: [],
+    audits: [],
+    hospitals: [
+      { id: DEMO_MAIN_HOSPITAL_ID, name: "عين شمس", slug: "ain-shams", is_active: true, created_at: t, updated_at: t },
+    ],
+    users: [
+      {
+        id: "demo-admin",
+        username: DEMO_USER,
+        full_name: "Demo Admin",
+        job_title: "System Administrator",
+        role: "super_admin",
+        hospital_id: null,
+        must_change_password: false,
+        is_active: true,
+        password: DEMO_PASS,
+        created_at: t,
+      },
+    ],
+  };
   migrateLegacy(db);
   return db;
 }
@@ -167,6 +217,39 @@ export function exportDemoData(): string {
 }
 
 /* ------------------------------------------------------------------ */
+/* Hospital scope (super_admin switcher)                               */
+/* ------------------------------------------------------------------ */
+
+let scopeId: string | null = null;
+
+export function setDemoHospitalScope(hospitalId: string | null) {
+  scopeId = hospitalId;
+}
+
+const DEFAULT_SCOPE = DEMO_MAIN_HOSPITAL_ID;
+
+/**
+ * The active hospital filter: super_admin uses the explicit scope (null = all);
+ * every other demo account is always limited to its own hospital — mirroring the RLS of live mode.
+ */
+function effectiveScope(): string | null {
+  try {
+    const raw = localStorage.getItem(DEMO_SESSION_KEY);
+    if (raw) {
+      const session = JSON.parse(raw) as { username: string };
+      const u = usersOf(db()).find((x) => x.username === session.username);
+      if (u && u.role !== "super_admin") return u.hospital_id ?? DEFAULT_SCOPE;
+    }
+  } catch {}
+  return scopeId;
+}
+
+function inScope(hospitalId: string | null | undefined): boolean {
+  const s = effectiveScope();
+  return s === null || s === (hospitalId ?? DEFAULT_SCOPE);
+}
+
+/* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
@@ -217,6 +300,68 @@ function sameName(a: string, b: string) {
   return normalizeArabic(a) === normalizeArabic(b);
 }
 
+/* ---------- hospitals ---------- */
+
+function hospitalsOf(d: DemoDB): Hospital[] {
+  if (!d.hospitals) {
+    d.hospitals = [{ id: DEMO_MAIN_HOSPITAL_ID, name: "عين شمس", slug: "ain-shams", is_active: true, created_at: FIXED_DATE, updated_at: FIXED_DATE }];
+  }
+  return d.hospitals;
+}
+
+const hospitalForSlug = (d: DemoDB, slug: string): Hospital | undefined =>
+  hospitalsOf(d).find((h) => h.slug === slug.trim().toLowerCase() && h.is_active);
+
+/** A demo row belongs to the main hospital unless a hospital_id was stamped on it. */
+const rowHospital = (x: { hospital_id?: string | null }) => x.hospital_id ?? DEMO_MAIN_HOSPITAL_ID;
+
+const staffInScope = (d: DemoDB) => d.staff.filter((s) => inScope(rowHospital(s)));
+const staffHospital = (d: DemoDB, staffId: string) => rowHospital(d.staff.find((s) => s.id === staffId) ?? {});
+
+/* ---------- engineer accounts (demo) ---------- */
+
+function usersOf(d: DemoDB): DemoUser[] {
+  if (!d.users) {
+    d.users = [
+      {
+        id: "demo-admin", username: DEMO_USER, full_name: "Demo Admin", job_title: "System Administrator",
+        role: "super_admin", hospital_id: null, must_change_password: false, is_active: true,
+        password: DEMO_PASS, created_at: FIXED_DATE,
+      },
+    ];
+  }
+  return d.users;
+}
+
+const USERNAME_RE = /^[a-z0-9][a-z0-9._-]{2,31}$/;
+
+function randomPassword(): string {
+  const sets = ["ABCDEFGHJKLMNPQRSTUVWXYZ", "abcdefghijkmnpqrstuvwxyz", "23456789", "!@#$%^&*-_=+"];
+  const all = sets.join("");
+  const out: string[] = [];
+  const pick = (set: string) => {
+    if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+      const buf = new Uint32Array(1);
+      crypto.getRandomValues(buf);
+      return set[buf[0] % set.length];
+    }
+    return set[Math.floor(Math.random() * set.length)];
+  };
+  for (const s of sets) out.push(pick(s));
+  while (out.length < 16) out.push(pick(all));
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out.join("");
+}
+
+const toAccount = (u: DemoUser): UserAccount => ({
+  id: u.id, username: u.username, email: `${u.username}@his.local`, full_name: u.full_name,
+  job_title: u.job_title, role: u.role, hospital_id: u.hospital_id, permissions: {},
+  must_change_password: u.must_change_password, is_active: u.is_active, created_at: u.created_at,
+});
+
 /* ---------- bed follow-up board ---------- */
 
 const bedsOf = (d: DemoDB): BedRecord[] => (d.beds ??= []);
@@ -234,33 +379,39 @@ function assertBedNo(n: number) {
 export const demoRepo: Repo = {
   mode: "demo",
 
-  async searchStaff(query) {
+  setHospitalScope(hospitalId) {
+    setDemoHospitalScope(hospitalId);
+  },
+
+  /* ---------------- public form (slug-scoped) ---------------- */
+
+  async searchStaffPublic(slug, query) {
+    const hospital = hospitalForSlug(db(), slug);
+    if (!hospital) return [];
     const q = normalizeArabic(query);
     if (q.length < 2) return [];
     const digits = normalizeDigits(query.trim());
     return db().staff
-      .filter((s) => s.is_active && (normalizeArabic(s.full_name).includes(q) || (s.his_user_id ?? "").includes(digits)))
+      .filter((s) => rowHospital(s) === hospital.id && s.is_active && (normalizeArabic(s.full_name).includes(q) || (s.his_user_id ?? "").includes(digits)))
       .slice(0, 10)
       .map(toLite);
   },
 
-  async getStaffLite(id) {
-    const s = db().staff.find((x) => x.id === id);
-    return s ? toLite(s) : null;
-  },
-
-  async addStaffFromForm(input) {
+  async addStaffPublic(slug, input) {
     const d = db();
+    const hospital = hospitalForSlug(d, slug);
+    if (!hospital) throw new Error("invalid_hospital");
     const name = input.full_name.replace(/\s+/g, " ").trim();
     if (name.length < 3) throw new Error("invalid_name");
     const his = input.his_user_id?.trim() || null;
-    const existing = d.staff.find((s) => (his && s.his_user_id === his) || sameName(s.full_name, name));
+    const existing = d.staff.find((s) => rowHospital(s) === hospital.id && ((his && s.his_user_id === his) || sameName(s.full_name, name)));
     if (existing) return toLite(existing);
     const t = nowIso();
     const s: StaffMember = {
-      id: newId(), full_name: name, job_type: input.job_type, department_id: null, his_user_id: his,
-      legacy_status: null, legacy_status_reviewed: false, is_active: true, registration_status: "not_started",
-      manual_score: 0, needs_review: true, created_at: t, updated_at: t, created_by: null, updated_by: null,
+      id: newId(), hospital_id: hospital.id, full_name: name, job_type: input.job_type, department_id: null,
+      his_user_id: his, legacy_status: null, legacy_status_reviewed: false, is_active: true,
+      registration_status: "not_started", manual_score: 0, needs_review: true, created_at: t, updated_at: t,
+      created_by: null, updated_by: null,
     };
     d.staff.push(s);
     audit(d, { action: "staff_added_from_form", entity_type: "staff_member", entity_id: s.id, new_values: { full_name: name } });
@@ -268,9 +419,11 @@ export const demoRepo: Repo = {
     return toLite(s);
   },
 
-  async submitEvaluation(input: SubmitEvaluationInput): Promise<SubmitEvaluationResult> {
+  async submitEvaluationPublic(slug, input: SubmitEvaluationInput): Promise<SubmitEvaluationResult> {
     const d = db();
-    const staff = d.staff.find((s) => s.id === input.staffId && s.is_active);
+    const hospital = hospitalForSlug(d, slug);
+    if (!hospital) throw new Error("invalid_hospital");
+    const staff = d.staff.find((s) => s.id === input.staffId && rowHospital(s) === hospital.id && s.is_active);
     if (!staff) throw new Error("staff_not_found");
     if (!getOption(input.result)) throw new Error("invalid_result");
     if (input.reporterName.trim().length < 2) throw new Error("invalid_reporter_name");
@@ -313,8 +466,10 @@ export const demoRepo: Repo = {
     return { points, newScore: staff.manual_score, escalated };
   },
 
-  async publicStats(): Promise<PublicStats> {
-    const active = db().staff.filter((s) => s.is_active);
+  async publicStatsPublic(slug): Promise<PublicStats> {
+    const d = db();
+    const hospital = hospitalForSlug(d, slug);
+    const active = d.staff.filter((s) => (!hospital || rowHospital(s) === hospital.id) && s.is_active);
     const registered = active.filter((s) => s.registration_status === "registered").length;
     return {
       total: active.length,
@@ -324,8 +479,94 @@ export const demoRepo: Repo = {
     };
   },
 
+  /* ---------------- hospitals ---------------- */
+
+  async listHospitals() {
+    return hospitalsOf(db()).slice().sort((a, b) => a.created_at.localeCompare(b.created_at));
+  },
+
+  async createHospital(name) {
+    const d = db();
+    const clean = name.replace(/\s+/g, " ").trim();
+    if (clean.length < 2) throw new Error("invalid_name");
+    let slug = slugifyName(clean);
+    const taken = new Set(hospitalsOf(d).map((h) => h.slug));
+    for (let i = 2; taken.has(slug); i++) slug = `${slugifyName(clean)}-${i}`;
+    const hospital: Hospital = { id: newId(), name: clean, slug, is_active: true, created_at: nowIso(), updated_at: nowIso() };
+    hospitalsOf(d).push(hospital);
+    audit(d, { action: "hospital_created", entity_type: "hospital", entity_id: hospital.id, new_values: { name: clean, slug } });
+    save();
+    return hospital;
+  },
+
+  async updateHospital(id, patch) {
+    const d = db();
+    const h = hospitalsOf(d).find((x) => x.id === id);
+    if (!h) throw new Error("hospital_not_found");
+    if (patch.name !== undefined) h.name = patch.name.replace(/\s+/g, " ").trim();
+    if (patch.is_active !== undefined) h.is_active = patch.is_active;
+    h.updated_at = nowIso();
+    audit(d, { action: "hospital_updated", entity_type: "hospital", entity_id: id, new_values: { ...patch } });
+    save();
+  },
+
+  /* ---------------- engineer accounts (demo) ---------------- */
+
+  async listUsers(hospitalId) {
+    const want = hospitalId !== undefined ? hospitalId : effectiveScope();
+    return usersOf(db())
+      .filter((u) => want === null || u.hospital_id === want)
+      .map(toAccount);
+  },
+
+  async createUser(input: CreateUserInput) {
+    const d = db();
+    const username = input.username.trim().toLowerCase();
+    if (!USERNAME_RE.test(username)) throw new Error("invalid_username");
+    const name = input.full_name.replace(/\s+/g, " ").trim();
+    if (name.length < 3) throw new Error("invalid_name");
+    if (usersOf(d).some((u) => u.username === username)) throw new Error("duplicate_username");
+    const password = randomPassword();
+    const user: DemoUser = {
+      id: newId(), username, full_name: name, job_title: input.job_title?.trim() || null, role: input.role,
+      hospital_id: input.hospital_id, must_change_password: input.must_change_password, is_active: true,
+      password, created_at: nowIso(),
+    };
+    usersOf(d).push(user);
+    audit(d, { action: "user_created", entity_type: "profile", entity_id: user.id, new_values: { username, role: input.role } });
+    save();
+    return { user: toAccount(user), password };
+  },
+
+  async updateUser(id, patch: UpdateUserInput) {
+    const d = db();
+    const u = usersOf(d).find((x) => x.id === id);
+    if (!u) throw new Error("user_not_found");
+    const before = { full_name: u.full_name, job_title: u.job_title, role: u.role, is_active: u.is_active };
+    if (patch.full_name !== undefined) u.full_name = patch.full_name.replace(/\s+/g, " ").trim();
+    if (patch.job_title !== undefined) u.job_title = patch.job_title?.trim() || null;
+    if (patch.role !== undefined) u.role = patch.role;
+    if (patch.is_active !== undefined) u.is_active = patch.is_active;
+    audit(d, { action: "user_updated", entity_type: "profile", entity_id: id, previous_values: before, new_values: { ...patch } });
+    save();
+  },
+
+  async resetUserPassword(id) {
+    const d = db();
+    const u = usersOf(d).find((x) => x.id === id);
+    if (!u) throw new Error("user_not_found");
+    const password = randomPassword();
+    u.password = password;
+    u.must_change_password = true;
+    audit(d, { action: "password_reset", entity_type: "profile", entity_id: id, new_values: { reset: true } });
+    save();
+    return { password };
+  },
+
+  /* ---------------- staff ---------------- */
+
   async listStaff() {
-    return db().staff.map(withDept).sort((a, b) => a.full_name.localeCompare(b.full_name, "ar"));
+    return staffInScope(db()).map(withDept).sort((a, b) => a.full_name.localeCompare(b.full_name, "ar"));
   },
 
   async getStaff(id) {
@@ -339,10 +580,10 @@ export const demoRepo: Repo = {
     if (his && d.staff.some((s) => s.his_user_id === his)) throw new Error("duplicate_his_id");
     const t = nowIso();
     const s: StaffMember = {
-      id: newId(), full_name: input.full_name.replace(/\s+/g, " ").trim(), job_type: input.job_type,
-      department_id: input.department_id ?? null, his_user_id: his, legacy_status: null, legacy_status_reviewed: false,
-      is_active: true, registration_status: "not_started", manual_score: 0, needs_review: false,
-      created_at: t, updated_at: t, created_by: "demo-admin", updated_by: "demo-admin",
+      id: newId(), hospital_id: effectiveScope() ?? DEMO_MAIN_HOSPITAL_ID, full_name: input.full_name.replace(/\s+/g, " ").trim(),
+      job_type: input.job_type, department_id: input.department_id ?? null, his_user_id: his,
+      legacy_status: null, legacy_status_reviewed: false, is_active: true, registration_status: "not_started",
+      manual_score: 0, needs_review: false, created_at: t, updated_at: t, created_by: "demo-admin", updated_by: "demo-admin",
     };
     d.staff.push(s);
     audit(d, { action: "staff_created", entity_type: "staff_member", entity_id: s.id, new_values: { full_name: s.full_name } });
@@ -399,14 +640,14 @@ export const demoRepo: Repo = {
   },
 
   async listEvaluations(opts) {
-    let list = db().evaluations;
+    let list = db().evaluations.filter((e) => inScope(staffHospital(db(), e.staff_member_id)));
     if (opts?.staffId) list = list.filter((e) => e.staff_member_id === opts.staffId);
     list = list.slice().sort((a, b) => b.created_at.localeCompare(a.created_at));
     return opts?.limit ? list.slice(0, opts.limit) : list;
   },
 
   async listFollowups(opts) {
-    let list = db().followups;
+    let list = db().followups.filter((f) => inScope(staffHospital(db(), f.staff_member_id)));
     if (opts?.staffId) list = list.filter((f) => f.staff_member_id === opts.staffId);
     return list.slice().sort((a, b) => a.due_date.localeCompare(b.due_date));
   },
@@ -422,7 +663,7 @@ export const demoRepo: Repo = {
   },
 
   async listEscalations(opts) {
-    let list = db().escalations;
+    let list = db().escalations.filter((e) => inScope(staffHospital(db(), e.staff_member_id)));
     if (opts?.staffId) list = list.filter((e) => e.staff_member_id === opts.staffId);
     return list.slice().sort((a, b) => b.created_at.localeCompare(a.created_at));
   },
@@ -491,10 +732,10 @@ export const demoRepo: Repo = {
     for (const r of rows) {
       if (r.his_user_id && d.staff.some((s) => s.his_user_id === r.his_user_id)) { failed++; continue; }
       d.staff.push({
-        id: newId(), full_name: r.full_name, job_type: r.job_type, department_id: r.department_id ?? null,
-        his_user_id: r.his_user_id, legacy_status: r.legacy_status, legacy_status_reviewed: false, is_active: true,
-        registration_status: "not_started", manual_score: 0, needs_review: r.needs_review ?? false,
-        created_at: t, updated_at: t, created_by: "demo-admin", updated_by: "demo-admin",
+        id: newId(), hospital_id: effectiveScope() ?? DEMO_MAIN_HOSPITAL_ID, full_name: r.full_name, job_type: r.job_type,
+        department_id: r.department_id ?? null, his_user_id: r.his_user_id, legacy_status: r.legacy_status,
+        legacy_status_reviewed: false, is_active: true, registration_status: "not_started", manual_score: 0,
+        needs_review: r.needs_review ?? false, created_at: t, updated_at: t, created_by: "demo-admin", updated_by: "demo-admin",
       });
       imported++;
     }
@@ -506,7 +747,7 @@ export const demoRepo: Repo = {
   /* ---------------- bed follow-up board ---------------- */
 
   async listBeds() {
-    return bedsOf(db()).slice().sort(compareBeds);
+    return bedsOf(db()).filter((b) => inScope(rowHospital(b))).slice().sort(compareBeds);
   },
 
   async createBed(input: BedInput) {
@@ -516,8 +757,8 @@ export const demoRepo: Repo = {
     const location = normalizeLocation(input.location);
     if (beds.some((b) => bedKey(b.location, b.bed_no) === bedKey(location, input.bed_no))) throw new Error("duplicate_bed");
     const bed: BedRecord = {
-      id: newId(), location, bed_no: input.bed_no, owner_name: cleanText(input.owner_name),
-      patient_name: cleanText(input.patient_name), notes: cleanText(input.notes),
+      id: newId(), hospital_id: effectiveScope() ?? DEMO_MAIN_HOSPITAL_ID, location, bed_no: input.bed_no,
+      owner_name: cleanText(input.owner_name), patient_name: cleanText(input.patient_name), notes: cleanText(input.notes),
       dr_edit_date: null, nurse_edit_date: null, tasks: {}, updated_at: nowIso(), updated_by_name: actorName(),
     };
     beds.push(bed);
@@ -593,6 +834,7 @@ export const demoRepo: Repo = {
     let updated = 0;
     const t = nowIso();
     const by = actorName();
+    const hospitalId = effectiveScope() ?? DEMO_MAIN_HOSPITAL_ID;
     for (const r of rows) {
       const existing = byKey.get(bedKey(r.location, r.bed_no));
       if (existing) {
@@ -603,7 +845,7 @@ export const demoRepo: Repo = {
         });
         updated++;
       } else {
-        const bed: BedRecord = { id: newId(), ...r, tasks: { ...r.tasks }, updated_at: t, updated_by_name: by };
+        const bed: BedRecord = { id: newId(), hospital_id: hospitalId, ...r, tasks: { ...r.tasks }, updated_at: t, updated_by_name: by };
         beds.push(bed);
         byKey.set(bedKey(bed.location, bed.bed_no), bed);
         created++;
@@ -614,3 +856,48 @@ export const demoRepo: Repo = {
     return { created, updated, failed: 0 };
   },
 };
+
+/* ------------------------------------------------------------------ */
+/* Demo sign-in with admin-created accounts                            */
+/* ------------------------------------------------------------------ */
+
+/** The signed-in demo account (same shape as the admin screens' UserAccount). */
+export type DemoSessionUser = UserAccount;
+
+/** Returns the demo account matching the session (null = not signed in). */
+export function readDemoSessionUser(): DemoUser | null {
+  try {
+    const raw = localStorage.getItem(DEMO_SESSION_KEY);
+    if (!raw) return null;
+    const session = JSON.parse(raw) as { username: string };
+    const u = usersOf(db()).find((x) => x.username === session.username && x.is_active);
+    return u ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Signs in with a username + password against the demo accounts in localStorage.
+ * Legacy env credentials (teamhis / adminhis@@@) keep working through the seeded user.
+ */
+export function demoUserLogin(username: string, password: string): boolean {
+  try {
+    const clean = username.trim().toLowerCase();
+    const u = usersOf(db()).find((x) => x.username === clean && x.is_active && x.password === password);
+    if (!u) return false;
+    localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({ username: u.username, name: u.full_name } satisfies { username: string; name: string }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Marks the forced password change as done after the demo user changes their password. */
+export function clearDemoMustChangePassword(id: string, newPassword: string) {
+  const u = usersOf(db()).find((x) => x.id === id);
+  if (!u) return;
+  u.must_change_password = false;
+  u.password = newPassword;
+  save();
+}

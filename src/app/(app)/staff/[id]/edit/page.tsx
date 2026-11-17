@@ -15,7 +15,7 @@ export default function EditStaffPage() {
   const { id } = useParams<{ id: string }>();
   const { t } = useLanguage();
   const router = useRouter();
-  const allowed = useRequireRole(["admin", "supervisor"]);
+  const allowed = useRequireRole(["super_admin", "hospital_admin", "supervisor"]);
   const [busy, setBusy] = useState(false);
   const { data: staff, loading } = useLoad(() => getRepo().getStaff(id), [id], allowed);
 

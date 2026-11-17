@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useLanguage } from "@/components/providers/language-provider";
+import { useUser } from "@/components/providers/user-provider";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState, FollowupStatusBadge, Loading, PageHeader } from "@/components/shared";
@@ -19,6 +20,7 @@ type Tab = (typeof TABS)[number];
 
 export default function FollowupsPage() {
   const { t, lang } = useLanguage();
+  const { formHref } = useUser();
   const [tab, setTab] = useState<Tab>("open");
   const { data, loading, error, reload } = useLoad(() => getRepo().listFollowups());
   const today = todayISO();
@@ -101,7 +103,7 @@ export default function FollowupsPage() {
                             {open && <Button size="sm" onClick={() => setStatus(f.id, "completed")}>{t("mark_done")}</Button>}
                             {open && <Button size="sm" variant="outline" onClick={() => setStatus(f.id, "cancelled")}>{t("cancel_followup")}</Button>}
                             {!open && <Button size="sm" variant="outline" onClick={() => setStatus(f.id, "scheduled")}>{t("reopen")}</Button>}
-                            <Link href={`/?staff=${f.staff_member_id}`}><Button size="sm" variant="secondary">{t("evaluate")}</Button></Link>
+                            {formHref && <Link href={formHref}><Button size="sm" variant="secondary">{t("evaluate")}</Button></Link>}
                           </div>
                         </td>
                       </tr>

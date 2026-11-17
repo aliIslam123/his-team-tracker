@@ -23,7 +23,7 @@ function summarize(v: Record<string, unknown> | null): string {
 
 export default function ActivityLogPage() {
   const { t, lang } = useLanguage();
-  const allowed = useRequireRole(["admin", "supervisor"]);
+  const allowed = useRequireRole(["super_admin", "hospital_admin", "supervisor"]);
   const [q, setQ] = useState("");
   const { data, loading, error } = useLoad(() => getRepo().listAudits(500), [], allowed);
 

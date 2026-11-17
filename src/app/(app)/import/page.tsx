@@ -86,7 +86,7 @@ interface Parsed {
 
 export default function ImportPage() {
   const { t } = useLanguage();
-  const allowed = useRequireRole(["admin", "supervisor"]);
+  const allowed = useRequireRole(["super_admin", "hospital_admin", "supervisor"]);
   const fileRef = useRef<HTMLInputElement>(null);
   const [parsed, setParsed] = useState<Parsed | null>(null);
   const [includePossible, setIncludePossible] = useState(true);

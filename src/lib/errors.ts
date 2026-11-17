@@ -15,6 +15,13 @@ const KNOWN = [
   "bed_not_found",
   "invalid_bed",
   "invalid_tasks",
+  "duplicate_username",
+  "invalid_username",
+  "user_not_found",
+  "invalid_hospital",
+  "protected_column",
+  "service_not_configured",
+  "duplicate_slug",
 ] as const;
 
 export function errorKey(err: unknown): string {

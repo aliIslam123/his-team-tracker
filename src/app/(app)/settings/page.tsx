@@ -1,7 +1,9 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
+import { KeyRound } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { useUser } from "@/components/providers/user-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +40,11 @@ export default function SettingsPage() {
           <p className="font-medium">{profile?.full_name}</p>
           {profile?.email && <p className="text-sm text-muted-foreground" dir="ltr">{profile.email}</p>}
           {role && <Badge variant="info">{t(`role_${role}`)}</Badge>}
+          <div>
+            <Button asChild variant="outline" size="sm" className="mt-2">
+              <Link href="/change-password"><KeyRound className="h-4 w-4" /> {t("change_password")}</Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

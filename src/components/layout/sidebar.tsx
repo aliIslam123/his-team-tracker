@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Users, ClipboardList, CalendarClock, BedDouble, AlertTriangle, BarChart3, Bell, Upload, ScrollText, Settings, LogOut,
+  LayoutDashboard, Users, ClipboardList, CalendarClock, BedDouble, AlertTriangle, BarChart3, Bell, Upload, ScrollText, Settings, LogOut, Building2, UserCog,
 } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { useUser } from "@/components/providers/user-provider";
@@ -25,8 +25,10 @@ const NAV: NavItem[] = [
   { href: "/escalations", key: "escalations", icon: AlertTriangle },
   { href: "/analytics", key: "analytics", icon: BarChart3 },
   { href: "/notifications", key: "notifications", icon: Bell },
-  { href: "/import", key: "import_staff", icon: Upload, roles: ["admin", "supervisor"] },
-  { href: "/activity", key: "activity_logs", icon: ScrollText, roles: ["admin", "supervisor"] },
+  { href: "/import", key: "import_staff", icon: Upload, roles: ["super_admin", "hospital_admin", "supervisor"] },
+  { href: "/activity", key: "activity_logs", icon: ScrollText, roles: ["super_admin", "hospital_admin", "supervisor"] },
+  { href: "/admin/hospitals", key: "hospitals", icon: Building2, roles: ["super_admin"] },
+  { href: "/admin/users", key: "users", icon: UserCog, roles: ["super_admin", "hospital_admin"] },
   { href: "/settings", key: "settings", icon: Settings },
 ];
 
@@ -34,7 +36,7 @@ const NAV: NavItem[] = [
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { t } = useLanguage();
-  const { role, signOut } = useUser();
+  const { role, signOut, formHref } = useUser();
   const items = NAV.filter((i) => !i.roles || (role && i.roles.includes(role)));
 
   return (
@@ -66,9 +68,11 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         })}
       </nav>
       <div className="space-y-1 border-t p-2">
-        <Link href="/" onClick={onNavigate} className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground">
-          {t("evaluation_form")}
-        </Link>
+        {formHref && (
+          <Link href={formHref} onClick={onNavigate} className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground">
+            {t("evaluation_form")}
+          </Link>
+        )}
         <button
           type="button"
           onClick={() => { onNavigate?.(); signOut(); }}

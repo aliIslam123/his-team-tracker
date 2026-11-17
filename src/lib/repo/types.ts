@@ -5,11 +5,13 @@ import type {
   BedInput,
   BedPatch,
   BedRecord,
+  CreateUserInput,
   Department,
   EscalationRecord,
   EvaluationRecord,
   FollowupRecord,
   FollowupStatus,
+  Hospital,
   ImportResult,
   ImportRowInput,
   Notification,
@@ -20,6 +22,8 @@ import type {
   StaffPatch,
   SubmitEvaluationInput,
   SubmitEvaluationResult,
+  UpdateUserInput,
+  UserAccount,
 } from "@/lib/types";
 
 /**
@@ -27,16 +31,32 @@ import type {
  *  - demo.ts  → browser localStorage (used when no Supabase env vars are set)
  *  - live.ts  → Supabase (RLS + SQL functions from supabase/migrations)
  * Every page talks to this interface only, so they all see the same data.
+ *
+ * Hospital isolation: rows are scoped by RLS on the server. super_admin picks a hospital
+ * with setHospitalScope() (or null to see everything); other roles are scoped automatically.
  */
 export interface Repo {
   mode: "demo" | "live";
 
-  /* public (used by the evaluation form, no login required) */
-  searchStaff(query: string): Promise<StaffLite[]>;
-  getStaffLite(id: string): Promise<StaffLite | null>;
-  addStaffFromForm(input: { full_name: string; job_type: StaffLite["job_type"]; his_user_id?: string | null }): Promise<StaffLite>;
-  submitEvaluation(input: SubmitEvaluationInput): Promise<SubmitEvaluationResult>;
-  publicStats(): Promise<PublicStats>;
+  /** super_admin only: filter every list by a hospital id (null = all hospitals). */
+  setHospitalScope(hospitalId: string | null): void;
+
+  /* public evaluation form at /h/<slug>/ — no login required */
+  searchStaffPublic(slug: string, query: string): Promise<StaffLite[]>;
+  addStaffPublic(slug: string, input: { full_name: string; job_type: StaffLite["job_type"]; his_user_id?: string | null }): Promise<StaffLite>;
+  submitEvaluationPublic(slug: string, input: SubmitEvaluationInput): Promise<SubmitEvaluationResult>;
+  publicStatsPublic(slug: string): Promise<PublicStats>;
+
+  /* hospitals (managed from the admin screens by super_admin) */
+  listHospitals(): Promise<Hospital[]>;
+  createHospital(name: string): Promise<Hospital>;
+  updateHospital(id: string, patch: { name?: string; is_active?: boolean }): Promise<void>;
+
+  /* engineer accounts — created by an admin only (Route Handler + service role in live mode) */
+  listUsers(hospitalId?: string): Promise<UserAccount[]>;
+  createUser(input: CreateUserInput): Promise<{ user: UserAccount; password: string }>;
+  updateUser(id: string, patch: UpdateUserInput): Promise<void>;
+  resetUserPassword(id: string): Promise<{ password: string }>;
 
   /* staff */
   listStaff(): Promise<StaffMember[]>;

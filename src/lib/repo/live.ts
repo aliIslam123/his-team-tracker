@@ -1,22 +1,29 @@
 import { createClient } from "@/lib/supabase/client";
 import { OPEN_ESCALATION_STATUSES } from "@/lib/evaluation";
 import { cleanText, normalizeLocation } from "@/lib/beds";
+import { slugifyName } from "@/lib/slug";
 import type {
   AuditRecord,
   BedImportResult,
   BedImportRow,
   BedRecord,
+  CreateUserInput,
   Department,
   EscalationRecord,
   EvaluationRecord,
   FollowupRecord,
   FollowupStatus,
+  Hospital,
   ImportResult,
   ImportRowInput,
   Notification,
   PublicStats,
   StaffLite,
   StaffMember,
+  SubmitEvaluationInput,
+  SubmitEvaluationResult,
+  UpdateUserInput,
+  UserAccount,
 } from "@/lib/types";
 import type { Repo } from "@/lib/repo/types";
 
@@ -45,6 +52,48 @@ async function fetchAll<T>(make: (from: number, to: number) => PromiseLike<{ dat
   }
   return out;
 }
+
+/* ------------------------------------------------------------------ */
+/* hospital scope (super_admin switcher)                               */
+/* ------------------------------------------------------------------ */
+
+let scopeId: string | null = null;
+
+/** super_admin only: restrict every list to one hospital (null = all hospitals). RLS already scopes everyone else. */
+export function setLiveHospitalScope(hospitalId: string | null) {
+  scopeId = hospitalId;
+}
+
+/** Applies the super_admin's hospital filter to a query when a scope is active. */
+function withScope(q: any): any {
+  return scopeId ? q.eq("hospital_id", scopeId) : q;
+}
+
+/* ------------------------------------------------------------------ */
+/* hospital_id stamping: RLS requires inserts to carry the caller's hospital */
+/* ------------------------------------------------------------------ */
+
+let actorHospital: string | null | undefined; // undefined = not loaded yet
+
+async function actorHospitalId(): Promise<string | null> {
+  if (actorHospital !== undefined) return actorHospital;
+  const uid = await currentUserId();
+  if (!uid) return null;
+  const { data } = await sb().from("profiles").select("hospital_id").eq("id", uid).maybeSingle();
+  const hospital: string | null = (data as any)?.hospital_id ?? null;
+  actorHospital = hospital;
+  return hospital;
+}
+
+/** The hospital id to stamp on new rows: the active scope (super_admin) or the caller's own hospital. */
+async function hospitalForWrite(): Promise<string | null> {
+  if (scopeId) return scopeId;
+  return actorHospitalId();
+}
+
+/* ------------------------------------------------------------------ */
+/* row mappers                                                         */
+/* ------------------------------------------------------------------ */
 
 const mapEvaluation = (r: any): EvaluationRecord => ({
   id: r.id,
@@ -86,6 +135,7 @@ const mapEscalation = (r: any): EscalationRecord => ({
 
 const mapBed = (r: any): BedRecord => ({
   id: r.id,
+  hospital_id: r.hospital_id ?? null,
   location: r.location ?? "",
   bed_no: r.bed_no,
   owner_name: r.owner_name ?? "",
@@ -98,33 +148,63 @@ const mapBed = (r: any): BedRecord => ({
   updated_by_name: r.updater?.full_name ?? null,
 });
 
+const toAccount = (p: any): UserAccount => ({
+  id: p.id,
+  username: p.username ?? null,
+  email: p.email ?? null,
+  full_name: p.full_name ?? "",
+  job_title: p.job_title ?? null,
+  role: p.role ?? "member",
+  hospital_id: p.hospital_id ?? null,
+  permissions: p.permissions ?? {},
+  must_change_password: Boolean(p.must_change_password),
+  is_active: p.is_active !== false,
+  created_at: p.created_at ?? new Date().toISOString(),
+});
+
 // bed_followups has two foreign keys to profiles (created_by, updated_by), so the embed must name the one it wants
 const BED_SELECT = "*, updater:profiles!updated_by(full_name)";
 
+/** audit_logs rows carry hospital_id (the RLS policy requires the caller's own hospital or NULL). */
 async function writeAudit(entry: { action: string; entity_type: string; entity_id: string | null; previous_values?: unknown; new_values?: unknown; reason?: string | null }) {
   const actor = await currentUserId();
-  await sb().from("audit_logs").insert({ actor_id: actor, ...entry });
+  const hospitalId = await hospitalForWrite();
+  await sb().from("audit_logs").insert({ actor_id: actor, hospital_id: hospitalId, ...entry });
+}
+
+/* ------------------------------------------------------------------ */
+/* admin Route Handlers (service role lives on the server only)         */
+/* ------------------------------------------------------------------ */
+
+async function callAdminApi(path: string, init?: RequestInit): Promise<any> {
+  const res = await fetch(path, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((body as { error?: string }).error ?? "error");
+  return body;
 }
 
 export const liveRepo: Repo = {
   mode: "live",
 
-  /* ---------------- public (anon-callable SQL functions) ---------------- */
+  setHospitalScope(hospitalId) {
+    setLiveHospitalScope(hospitalId);
+  },
 
-  async searchStaff(query) {
+  /* ---------------- public form at /h/<slug>/ (slug-scoped SQL functions) ---------------- */
+
+  async searchStaffPublic(slug, query) {
     if (query.trim().length < 2) return [];
-    const { data, error } = await sb().rpc("search_staff", { p_query: query.trim() });
+    const { data, error } = await sb().rpc("search_staff_h", { p_slug: slug, p_query: query.trim() });
     if (error) fail(error);
     return (data as StaffLite[]) ?? [];
   },
 
-  async getStaffLite(id) {
-    const { data } = await sb().from("staff_members").select("id, full_name, job_type, his_user_id").eq("id", id).maybeSingle();
-    return (data as StaffLite | null) ?? null;
-  },
-
-  async addStaffFromForm(input) {
-    const { data, error } = await sb().rpc("add_staff_public", {
+  async addStaffPublic(slug, input) {
+    const { data, error } = await sb().rpc("add_staff_public_h", {
+      p_slug: slug,
       p_full_name: input.full_name,
       p_job_type: input.job_type,
       p_his_user_id: input.his_user_id ?? null,
@@ -133,8 +213,9 @@ export const liveRepo: Repo = {
     return data as StaffLite;
   },
 
-  async submitEvaluation(input) {
-    const { data, error } = await sb().rpc("submit_evaluation", {
+  async submitEvaluationPublic(slug, input: SubmitEvaluationInput): Promise<SubmitEvaluationResult> {
+    const { data, error } = await sb().rpc("submit_evaluation_h", {
+      p_slug: slug,
       p_staff_id: input.staffId,
       p_reporter_name: input.reporterName,
       p_reporter_phone: input.reporterPhone,
@@ -148,17 +229,69 @@ export const liveRepo: Repo = {
     return { points: r.points, newScore: r.new_score, escalated: r.escalated };
   },
 
-  async publicStats(): Promise<PublicStats> {
-    const { data, error } = await sb().rpc("public_stats");
+  async publicStatsPublic(slug): Promise<PublicStats> {
+    const { data, error } = await sb().rpc("public_stats_h", { p_slug: slug });
     if (error) fail(error);
     return data as PublicStats;
+  },
+
+  /* ---------------- hospitals (managed by super_admin) ---------------- */
+
+  async listHospitals() {
+    const { data, error } = await sb().from("hospitals").select("*").order("created_at");
+    if (error) fail(error);
+    return (data as Hospital[]) ?? [];
+  },
+
+  async createHospital(name) {
+    const clean = name.replace(/\s+/g, " ").trim();
+    if (clean.length < 2) throw new Error("invalid_name");
+    const base = slugifyName(clean);
+    for (let i = 1; i <= 30; i++) {
+      const slug = i === 1 ? base : `${base}-${i}`;
+      const { data, error } = await sb().from("hospitals").insert({ name: clean, slug }).select("*").single();
+      if (!error) return data as Hospital;
+      if (error.code !== "23505") fail(error); // slug already taken → try the next suffix
+    }
+    throw new Error("duplicate_slug");
+  },
+
+  async updateHospital(id, patch) {
+    const { error } = await sb().from("hospitals").update(patch).eq("id", id);
+    if (error) fail(error);
+  },
+
+  /* ---------------- engineer accounts (created by an admin only) ---------------- */
+
+  async listUsers(hospitalId) {
+    const target = hospitalId ?? scopeId;
+    const rows = await fetchAll<any>((from, to) => {
+      let q = sb().from("profiles").select("*").order("full_name");
+      if (target) q = q.eq("hospital_id", target);
+      return q.range(from, to) as any;
+    });
+    return rows.map(toAccount);
+  },
+
+  async createUser(input: CreateUserInput) {
+    const body = await callAdminApi("/api/admin/users", { method: "POST", body: JSON.stringify(input) });
+    return { user: body.user as UserAccount, password: body.password as string };
+  },
+
+  async updateUser(id, patch: UpdateUserInput) {
+    await callAdminApi(`/api/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+  },
+
+  async resetUserPassword(id) {
+    const body = await callAdminApi(`/api/admin/users/${id}/password`, { method: "POST" });
+    return { password: body.password as string };
   },
 
   /* ---------------- staff ---------------- */
 
   async listStaff() {
     return fetchAll<StaffMember>((from, to) =>
-      sb().from("staff_members").select("*, department:departments(*)").order("full_name").range(from, to) as any
+      withScope(sb().from("staff_members").select("*, department:departments(*)").order("full_name")).range(from, to) as any
     );
   },
 
@@ -172,6 +305,7 @@ export const liveRepo: Repo = {
     const { data, error } = await sb()
       .from("staff_members")
       .insert({
+        hospital_id: await hospitalForWrite(),
         full_name: input.full_name.replace(/\s+/g, " ").trim(),
         job_type: input.job_type,
         department_id: input.department_id || null,
@@ -241,7 +375,7 @@ export const liveRepo: Repo = {
       if (error) fail(error);
       return ((data as any[]) ?? []).map(mapEvaluation);
     }
-    const rows = await fetchAll<any>((from, to) => base().range(from, to) as any);
+    const rows = await fetchAll<any>((from, to) => withScope(base()).range(from, to) as any);
     return rows.map(mapEvaluation);
   },
 
@@ -249,7 +383,7 @@ export const liveRepo: Repo = {
     const rows = await fetchAll<any>((from, to) => {
       let q = sb().from("follow_ups").select("*, staff:staff_members(full_name)").order("due_date", { ascending: true });
       if (opts?.staffId) q = q.eq("staff_member_id", opts.staffId);
-      return q.range(from, to) as any;
+      return withScope(q).range(from, to) as any;
     });
     return rows.map(mapFollowup);
   },
@@ -269,7 +403,7 @@ export const liveRepo: Repo = {
     const rows = await fetchAll<any>((from, to) => {
       let q = sb().from("escalation_drafts").select("*, staff:staff_members(full_name, job_type)").order("created_at", { ascending: false });
       if (opts?.staffId) q = q.eq("staff_member_id", opts.staffId);
-      return q.range(from, to) as any;
+      return withScope(q).range(from, to) as any;
     });
     return rows.map(mapEscalation);
   },
@@ -290,7 +424,13 @@ export const liveRepo: Repo = {
     const { data: staff } = await sb().from("staff_members").select("manual_score").eq("id", staffId).single();
     const { data, error } = await sb()
       .from("escalation_drafts")
-      .insert({ staff_member_id: staffId, total_points: (staff as any)?.manual_score ?? 0, status: "pending_review", draft_text: "" })
+      .insert({
+        hospital_id: await hospitalForWrite(),
+        staff_member_id: staffId,
+        total_points: (staff as any)?.manual_score ?? 0,
+        status: "pending_review",
+        draft_text: "",
+      })
       .select("id")
       .single();
     if (error) fail(error);
@@ -311,7 +451,7 @@ export const liveRepo: Repo = {
       .update({ status, draft_text: draftText, supervisor_notes: notes || null, reviewed_by: uid, reviewed_at: new Date().toISOString() })
       .eq("id", id);
     if (error) fail(error);
-    await sb().from("escalation_reviews").insert({ escalation_draft_id: id, reviewer_id: uid, action, notes: notes || null });
+    await sb().from("escalation_reviews").insert({ hospital_id: await hospitalForWrite(), escalation_draft_id: id, reviewer_id: uid, action, notes: notes || null });
     await writeAudit({ action: `escalation_${action}`, entity_type: "escalation_draft", entity_id: id, new_values: { status } });
   },
 
@@ -338,13 +478,10 @@ export const liveRepo: Repo = {
   },
 
   async listAudits(limit = 200): Promise<AuditRecord[]> {
-    const { data, error } = await sb()
-      .from("audit_logs")
-      .select("*, actor:profiles(full_name)")
-      .order("created_at", { ascending: false })
-      .limit(limit);
-    if (error) fail(error);
-    return ((data as any[]) ?? []).map((r) => ({
+    const rows = await fetchAll<any>((from, to) =>
+      withScope(sb().from("audit_logs").select("*, actor:profiles(full_name)").order("created_at", { ascending: false })).range(from, to) as any
+    );
+    return rows.slice(0, limit).map((r) => ({
       id: r.id,
       actor_name: r.actor?.full_name ?? null,
       action: r.action,
@@ -361,13 +498,15 @@ export const liveRepo: Repo = {
 
   async importStaff(rows: ImportRowInput[], fileName: string): Promise<ImportResult> {
     const uid = await currentUserId();
+    const hospitalId = await hospitalForWrite();
     const { data: job } = await sb()
       .from("import_jobs")
-      .insert({ created_by: uid, file_name: fileName, status: "processing", total_rows: rows.length })
+      .insert({ hospital_id: hospitalId, created_by: uid, file_name: fileName, status: "processing", total_rows: rows.length })
       .select("id")
       .single();
 
     const toRow = (r: ImportRowInput) => ({
+      hospital_id: hospitalId,
       full_name: r.full_name,
       job_type: r.job_type,
       his_user_id: r.his_user_id,
@@ -409,7 +548,7 @@ export const liveRepo: Repo = {
 
   async listBeds() {
     const rows = await fetchAll<any>((from, to) =>
-      sb().from("bed_followups").select(BED_SELECT).order("bed_no").order("location").order("id").range(from, to) as any
+      withScope(sb().from("bed_followups").select(BED_SELECT).order("bed_no").order("location").order("id")).range(from, to) as any
     );
     return rows.map(mapBed);
   },
@@ -420,6 +559,7 @@ export const liveRepo: Repo = {
     const { data, error } = await sb()
       .from("bed_followups")
       .insert({
+        hospital_id: await hospitalForWrite(),
         location: normalizeLocation(input.location),
         bed_no: input.bed_no,
         owner_name: cleanText(input.owner_name),
@@ -489,6 +629,7 @@ export const liveRepo: Repo = {
 
   async importBeds(rows: BedImportRow[], fileName: string): Promise<BedImportResult> {
     const uid = await currentUserId();
+    const hospitalId = await hospitalForWrite();
     const existing = await fetchAll<any>((from, to) =>
       sb().from("bed_followups").select("location, bed_no").order("id").range(from, to) as any
     );
@@ -496,6 +637,7 @@ export const liveRepo: Repo = {
     const isNew = (r: BedImportRow) => !have.has(`${r.location.toLowerCase()}|${r.bed_no}`);
 
     const base = (r: BedImportRow) => ({
+      hospital_id: hospitalId,
       location: r.location, bed_no: r.bed_no, owner_name: r.owner_name, patient_name: r.patient_name, notes: r.notes,
       dr_edit_date: r.dr_edit_date, nurse_edit_date: r.nurse_edit_date, tasks: r.tasks, updated_by: uid,
     });

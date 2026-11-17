@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
@@ -68,8 +67,8 @@ export default function LoginPage() {
           <CardContent>
             <form onSubmit={onSubmit} className="space-y-4" noValidate>
               <div className="space-y-1">
-                <Label htmlFor="identifier">{mode === "live" ? t("email") : t("username")}</Label>
-                <Input id="identifier" name="identifier" autoComplete="username" dir="ltr" value={identifier} onChange={(e) => setIdentifier(e.target.value)} type={mode === "live" ? "email" : "text"} />
+                <Label htmlFor="identifier">{t("username")}</Label>
+                <Input id="identifier" name="identifier" autoComplete="username" dir="ltr" value={identifier} onChange={(e) => setIdentifier(e.target.value)} type="text" />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="password">{t("password")}</Label>
@@ -81,7 +80,7 @@ export default function LoginPage() {
           </CardContent>
         </Card>
         {mode === "demo" && <p className="text-center text-xs text-muted-foreground">{t("demo_login_hint")}</p>}
-        <Link href="/" className="block text-center text-sm text-primary hover:underline">{t("back_to_form")}</Link>
+        <p className="text-center text-xs text-muted-foreground">{t("login_username_hint")}</p>
       </div>
     </div>
   );

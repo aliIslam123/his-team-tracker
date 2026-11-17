@@ -20,7 +20,7 @@ import { errorKey } from "@/lib/errors";
 export default function StaffProfilePage() {
   const { id } = useParams<{ id: string }>();
   const { t, lang } = useLanguage();
-  const { canManage } = useUser();
+  const { canManage, formHref } = useUser();
   const router = useRouter();
   const [resetOpen, setResetOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -80,7 +80,7 @@ export default function StaffProfilePage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => router.back()}>{t("back")}</Button>
-          <Link href={`/?staff=${staff.id}`}><Button size="sm">{t("evaluate")}</Button></Link>
+          {formHref && <Link href={formHref}><Button size="sm">{t("evaluate")}</Button></Link>}
           {canManage && <Link href={`/staff/${staff.id}/edit`}><Button size="sm" variant="secondary">{t("edit")}</Button></Link>}
           {canManage && !openEscalation && <Button size="sm" variant="outline" onClick={createEscalation} disabled={busy}>{t("create_escalation")}</Button>}
           {canManage && staff.manual_score !== 0 && <Button size="sm" variant="destructive" onClick={() => setResetOpen(true)}>{t("reset_score")}</Button>}

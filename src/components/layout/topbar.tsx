@@ -3,17 +3,18 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Languages, Menu, Bell } from "lucide-react";
+import { Sun, Moon, Languages, Menu, Bell, Building2, FileText, KeyRound } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { useUser } from "@/components/providers/user-provider";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { getRepo } from "@/lib/repo";
 
 export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const { lang, setLang, t } = useLanguage();
   const { theme, setTheme } = useTheme();
-  const { profile, role, signOut } = useUser();
+  const { profile, role, signOut, isSuper, hospitals, scope, setScope, formHref } = useUser();
   const pathname = usePathname();
   const [unread, setUnread] = useState(0);
 
@@ -37,6 +38,29 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
         <Menu className="h-5 w-5" />
       </Button>
       <div className="flex-1" />
+
+      {/* super_admin only: which hospital's data is being viewed (or all of them) */}
+      {isSuper && hospitals.length > 0 && (
+        <Select value={scope ?? "all"} onValueChange={(v) => setScope(v === "all" ? null : v)}>
+          <SelectTrigger className="h-9 w-44 gap-1" aria-label={t("hospital")}>
+            <Building2 className="h-4 w-4 shrink-0" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("all_hospitals")}</SelectItem>
+            {hospitals.map((h) => (
+              <SelectItem key={h.id} value={h.id}>{h.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {formHref && (
+        <Button variant="ghost" size="icon" asChild aria-label={t("evaluation_form")}>
+          <Link href={formHref}><FileText className="h-5 w-5" /></Link>
+        </Button>
+      )}
+
       <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} aria-label={t("theme")}>
         {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
       </Button>
@@ -67,6 +91,9 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>{profile?.email || profile?.full_name}{role ? ` · ${t(`role_${role}`)}` : ""}</DropdownMenuLabel>
           <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <Link href="/change-password"><KeyRound className="h-4 w-4" /> {t("change_password")}</Link>
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => signOut()}>{t("logout")}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

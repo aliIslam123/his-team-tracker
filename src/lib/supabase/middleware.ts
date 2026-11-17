@@ -2,8 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { hasSupabaseEnv } from "@/lib/env";
 
-/** Routes that require a signed-in user. The public evaluation form ("/") and /login stay open. */
-const PROTECTED = ["/dashboard", "/staff", "/history", "/followups", "/beds", "/escalations", "/analytics", "/notifications", "/import", "/activity", "/settings", "/access-denied"];
+/** Routes that require a signed-in user. The public evaluation form ("/h/<slug>") and /login stay open. */
+const PROTECTED = ["/dashboard", "/staff", "/history", "/followups", "/beds", "/escalations", "/analytics", "/notifications", "/import", "/activity", "/settings", "/access-denied", "/admin", "/change-password"];
 
 export async function updateSession(request: NextRequest) {
   // Demo mode (no Supabase env): nothing to refresh; the client-side AuthGuard handles the demo login.

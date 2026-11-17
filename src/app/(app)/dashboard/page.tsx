@@ -15,7 +15,7 @@ const OPEN_FOLLOWUP = ["pending", "scheduled", "in_progress"];
 
 export default function DashboardPage() {
   const { t, lang } = useLanguage();
-  const { canManage } = useUser();
+  const { canManage, formHref } = useUser();
 
   const { data, loading, error } = useLoad(async () => {
     const repo = getRepo();
@@ -50,7 +50,7 @@ export default function DashboardPage() {
         title={t("dashboard")}
         actions={
           <>
-            <Link href="/"><Button variant="outline">{t("evaluation_form")}</Button></Link>
+            {formHref && <Link href={formHref}><Button variant="outline">{t("evaluation_form")}</Button></Link>}
             {canManage && <Link href="/staff/new"><Button><Plus className="h-4 w-4" />{t("add_staff")}</Button></Link>}
           </>
         }

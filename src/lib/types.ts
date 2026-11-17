@@ -1,18 +1,65 @@
-export type Role = "admin" | "supervisor" | "team_member";
+export type Role = "super_admin" | "hospital_admin" | "supervisor" | "member";
 
 export type JobType = "Doctor" | "Specialist Doctor" | "Head Nurse" | "Nurse" | "Administration";
 
 export type RegistrationStatus = "registered" | "pending" | "not_started" | "needs_followup";
 
+/** super_admin: all hospitals (hospital_id null) · the rest are bound to exactly one hospital. */
 export interface Profile {
   id: string;
   email: string;
   full_name: string;
   role: Role;
+  username?: string | null;
+  hospital_id?: string | null;
+  /** Per-module toggles defined in src/lib/permissions.ts (stage 2). */
+  permissions?: Record<string, boolean> | null;
+  job_title?: string | null;
+  /** Forces a password change on the next sign-in. */
+  must_change_password?: boolean;
+  is_active?: boolean;
   avatar_url?: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export interface Hospital {
+  id: string;
+  name: string;
+  slug: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** An engineer account (created by an admin only) as shown in the admin screens. */
+export interface UserAccount {
+  id: string;
+  username: string | null;
+  email: string | null;
+  full_name: string;
+  job_title: string | null;
+  role: Role;
+  hospital_id: string | null;
+  permissions?: Record<string, boolean> | null;
+  must_change_password: boolean;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface CreateUserInput {
+  hospital_id: string;
+  username: string;
+  full_name: string;
+  job_title?: string | null;
+  role: Role;
+  must_change_password: boolean;
+}
+
+export type UpdateUserInput = Partial<Pick<UserAccount, "full_name" | "job_title" | "role" | "is_active">> & {
+  /** super_admin only: move an account to another hospital. */
+  hospital_id?: string;
+};
 
 export interface Department {
   id: string;
@@ -24,6 +71,7 @@ export interface Department {
 
 export interface StaffMember {
   id: string;
+  hospital_id?: string | null;
   full_name: string;
   job_type: JobType;
   department_id: string | null;
@@ -296,6 +344,7 @@ export interface ImportResult {
 /** One bed on the follow-up board = one row of the old Google/Excel sheet. */
 export interface BedRecord {
   id: string;
+  hospital_id?: string | null;
   location: string;
   bed_no: number;
   owner_name: string;
