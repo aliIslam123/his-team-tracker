@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomInt } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient as createSupabaseJsClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
@@ -42,7 +42,18 @@ export function toErrorResponse(err: unknown): NextResponse {
 /** Verifies the signed-in caller is allowed to manage accounts.
  *  supervisor is admitted for CREATE ONLY (member accounts in their own hospital);
  *  the route handlers enforce that restriction. */
-export async function requireUserManager(): Promise<Profile> {
+/** Defense in depth against cross-site requests: when the browser sends an Origin header it must match our host. */
+function assertSameOrigin(request?: Request) {
+  const origin = request?.headers.get("origin");
+  if (!origin) return;
+  const host = request?.headers.get("x-forwarded-host") ?? request?.headers.get("host");
+  let originHost = "";
+  try { originHost = new URL(origin).host; } catch { /* malformed */ }
+  if (!host || originHost !== host) throw new ApiError(403, "bad_origin");
+}
+
+export async function requireUserManager(request?: Request): Promise<Profile> {
+  assertSameOrigin(request);
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
   if (!data.user) throw new ApiError(401, "not_authenticated");
@@ -69,15 +80,16 @@ export const internalEmail = (username: string) => `${username}@his.local`;
 export function generatePassword(): string {
   const sets = ["ABCDEFGHJKLMNPQRSTUVWXYZ", "abcdefghijkmnpqrstuvwxyz", "23456789", "!@#$%^&*-_=+"];
   const all = sets.join("");
-  const bytes = randomBytes(16);
-  const chars = sets.map((set, i) => set[bytes[i] % set.length]);
-  for (let i = chars.length; i < 16; i++) chars.push(all[bytes[i] % all.length]);
-  // Fisher–Yates so the first four characters are not always one per group
-  for (let i = chars.length - 1; i > 0; i--) {
-    const j = bytes[i] % (i + 1);
-    [chars[i], chars[j]] = [chars[j], chars[i]];
+  // randomInt is unbiased (no modulo bias) and CSPRNG-backed.
+  const pick = (chars: string) => chars[randomInt(chars.length)];
+  const out = sets.map(pick);
+  while (out.length < 16) out.push(pick(all));
+  // Fisher–Yates shuffle with unbiased indices
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1);
+    [out[i], out[j]] = [out[j], out[i]];
   }
-  return chars.join("");
+  return out.join("");
 }
 
 export function isManageableRole(role: string): boolean {

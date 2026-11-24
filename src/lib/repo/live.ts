@@ -661,7 +661,7 @@ export const liveRepo: Repo = {
     const uid = await currentUserId();
     const hospitalId = await hospitalForWrite();
     const existing = await fetchAll<any>((from, to) =>
-      sb().from("bed_followups").select("location, bed_no").order("id").range(from, to) as any
+      withScope(sb().from("bed_followups").select("location, bed_no").order("id")).range(from, to) as any
     );
     const have = new Set(existing.map((r) => `${String(r.location).toLowerCase()}|${r.bed_no}`));
     const isNew = (r: BedImportRow) => !have.has(`${r.location.toLowerCase()}|${r.bed_no}`);
@@ -678,7 +678,7 @@ export const liveRepo: Repo = {
     let updated = 0;
     let failed = 0;
     const upsert = (batch: BedImportRow[]) =>
-      sb().from("bed_followups").upsert(batch.map(toRow), { onConflict: "location,bed_no" });
+      sb().from("bed_followups").upsert(batch.map(toRow), { onConflict: "hospital_id,location,bed_no" });
 
     for (const group of [rows.filter(isNew), rows.filter((r) => !isNew(r))]) {
       const fresh = group.length > 0 && isNew(group[0]);

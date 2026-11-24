@@ -260,3 +260,14 @@ insert into public.staff_members (full_name, job_type, his_user_id, legacy_statu
   ('زياد نبيل محمد موسى', 'Nurse', null, null, false, true, 'not_started', false)
 on conflict do nothing;
 
+-- If 0005 (multi-hospital) is already applied, attach the seeded staff to the first hospital
+-- (otherwise they would have no hospital and stay hidden from every hospital user).
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'staff_members' and column_name = 'hospital_id') then
+    update public.staff_members
+       set hospital_id = (select id from public.hospitals where slug = 'ain-shams')
+     where hospital_id is null;
+  end if;
+end $$;

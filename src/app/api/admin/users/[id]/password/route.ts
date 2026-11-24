@@ -8,9 +8,9 @@ export const dynamic = "force-dynamic";
  * A new strong password is generated server-side, returned ONCE, and the account is
  * flagged must_change_password so the engineer changes it at the next sign-in.
  */
-export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
-    const caller = await requireUserManager();
+    const caller = await requireUserManager(request);
     // Supervisors may create member accounts only — never reset passwords.
     if (caller.role === "supervisor") throw new ApiError(403, "not_allowed");
     const svc = serviceClient();

@@ -24,7 +24,7 @@ const toAccount = (p: Record<string, unknown>): UserAccount => ({
  */
 export async function POST(request: NextRequest) {
   try {
-    const caller = await requireUserManager();
+    const caller = await requireUserManager(request);
     const svc = serviceClient();
 
     const body = (await request.json()) as Partial<CreateUserInput>;

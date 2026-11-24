@@ -94,8 +94,8 @@ begin
   update public.staff_members       set hospital_id = v_first where hospital_id is null;
   update public.interactions i      set hospital_id = s.hospital_id
     from public.staff_members s where i.staff_member_id = s.id and i.hospital_id is null;
-  update public.interaction_support is set hospital_id = i.hospital_id
-    from public.interactions i where is.interaction_id = i.id and is.hospital_id is null;
+  update public.interaction_support isup set hospital_id = i.hospital_id
+    from public.interactions i where isup.interaction_id = i.id and isup.hospital_id is null;
   update public.follow_ups f        set hospital_id = s.hospital_id
     from public.staff_members s where f.staff_member_id = s.id and f.hospital_id is null;
   update public.escalation_drafts e set hospital_id = s.hospital_id
