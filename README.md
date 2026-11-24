@@ -22,7 +22,7 @@ Internal tool for tracking staff registration on the hospital HIS. Field team me
 | `/analytics` | رسوم بيانية (حسب الوظيفة، الحالة، الأشهر، الأقسام، النتائج) |
 | `/import` | استيراد الموظفين من CSV/Excel مع كشف التكرار |
 | `/activity` | سجل النشاط (للمدير/المشرف) |
-| `/notifications`, `/settings` | الإشعارات والإعدادات |
+| `/notifications`, `/settings` | الإشعارات (المدير/المشرف يرسل لكل المستشفيات أو مستشفى بعينه أو شخص/أشخاص محددين) والإعدادات |
 
 ### مستشفيات متعددة (Multi-hospital)
 

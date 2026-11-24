@@ -484,7 +484,7 @@ export const liveRepo: Repo = {
     const body = input.body.trim();
     if (!title || !body) throw new Error("invalid_message");
     const { error } = await sb().from("notifications").insert({
-      hospital_id: await hospitalForWrite(),
+      hospital_id: input.hospitalId !== undefined ? input.hospitalId : await hospitalForWrite(),
       recipient_id: input.recipientId,
       title,
       body,
