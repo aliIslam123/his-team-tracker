@@ -77,9 +77,6 @@ export default function ComparisonPage() {
                     [t("stat_registered"), h.staff_registered],
                     [t("comparison_beds"), h.beds_total],
                     [t("comparison_awaiting_engineer"), h.beds_open],
-                    [t("evaluations"), h.evaluations_total],
-                    [t("evaluations_7d"), h.evaluations_7d],
-                    [t("followups_open"), h.followups_open],
                   ].map(([label, value]) => (
                     <div key={String(label)} className="rounded-md bg-muted p-2">
                       <p className="text-xs text-muted-foreground">{label}</p>
@@ -121,9 +118,6 @@ export default function ComparisonPage() {
                   <th className="p-3 text-start">{t("stat_registered")}</th>
                   <th className="p-3 text-start">{t("comparison_beds")}</th>
                   <th className="p-3 text-start">{t("comparison_awaiting_engineer")}</th>
-                  <th className="p-3 text-start">{t("evaluations")}</th>
-                  <th className="p-3 text-start">{t("evaluations_7d")}</th>
-                  <th className="p-3 text-start">{t("followups_open")}</th>
                   <th className="p-3 text-start">{t("followups_overdue")}</th>
                   <th className="p-3 text-start">{t("escalations_pending")}</th>
                   <th className="p-3 text-start">{t("registration_progress")}</th>
@@ -140,9 +134,6 @@ export default function ComparisonPage() {
                     <td className="p-3">{h.staff_registered}</td>
                     <td className="p-3">{h.beds_total}</td>
                     <td className="p-3">{h.beds_open > 0 ? <span className="font-bold text-warning">{h.beds_open}</span> : h.beds_open}</td>
-                    <td className="p-3">{h.evaluations_total}</td>
-                    <td className="p-3">{h.evaluations_7d}</td>
-                    <td className="p-3">{h.followups_open}</td>
                     <td className="p-3">{h.followups_overdue > 0 ? <span className="font-bold text-destructive">{h.followups_overdue}</span> : h.followups_overdue}</td>
                     <td className="p-3">{h.escalations_pending}</td>
                     <td className="p-3">{pct(h)}%</td>
