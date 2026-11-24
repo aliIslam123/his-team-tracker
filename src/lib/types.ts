@@ -418,4 +418,6 @@ export interface HospitalComparison {
   /** Bed follow-up records in this hospital, and how many still need work. */
   beds_total: number;
   beds_open: number;
+  /** User accounts created for this hospital (the "team" in /admin/users). */
+  team_total: number;
 }

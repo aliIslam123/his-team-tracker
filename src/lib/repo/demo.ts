@@ -549,6 +549,7 @@ export const demoRepo: Repo = {
           beds_open: (d.beds ?? []).filter(
             (b) => rowHospital(b) === h.id && !BED_TASKS.every((task) => b.tasks?.[task.key] === true)
           ).length,
+          team_total: usersOf(d).filter((u) => u.hospital_id === h.id).length,
         };
       });
   },
