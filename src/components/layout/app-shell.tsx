@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar, SidebarContent } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
@@ -7,13 +7,19 @@ import { useUser } from "@/components/providers/user-provider";
 import { useLanguage } from "@/components/providers/language-provider";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [previousPath, setPreviousPath] = useState(pathname);
   const { mode } = useUser();
   const { t } = useLanguage();
 
-  // close the drawer whenever the route changes
-  useEffect(() => { setMobileOpen(false); }, [pathname]);
+  // Close the drawer during render when the route changes (React's "adjust state
+  // when props change" pattern) instead of in an effect, which would cause a
+  // synchronous cascading render.
+  if (previousPath !== pathname) {
+    setPreviousPath(pathname);
+    setMobileOpen(false);
+  }
 
   return (
     <div className="flex min-h-screen">

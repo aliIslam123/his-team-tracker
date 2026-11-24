@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -62,20 +62,27 @@ export default function HospitalEvaluationPage() {
   const hydrated = useRef(false);
 
   /* ---- restore evaluator identity + unsent draft ---- */
+  // Restore after mount in a microtask: the fields still start empty during SSR,
+  // and the updates are not synchronous inside the effect body.
   useEffect(() => {
-    try {
-      const who = JSON.parse(localStorage.getItem(EVALUATOR_KEY) ?? "null");
-      if (who) { setEvaluatorName(who.name ?? ""); setEvaluatorPhone(who.phone ?? ""); }
-      const d = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "null");
-      if (d) {
-        setNotes(d.notes ?? "");
-        setResult(d.result ?? "");
-        setFollowup(!!d.followup);
-        setFollowupDate(d.followupDate ?? "");
-        setFollowupNote(d.followupNote ?? "");
-      }
-    } catch {}
-    hydrated.current = true;
+    let alive = true;
+    void Promise.resolve().then(() => {
+      if (!alive) return;
+      try {
+        const who = JSON.parse(localStorage.getItem(EVALUATOR_KEY) ?? "null");
+        if (who) { setEvaluatorName(who.name ?? ""); setEvaluatorPhone(who.phone ?? ""); }
+        const d = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "null");
+        if (d) {
+          setNotes(d.notes ?? "");
+          setResult(d.result ?? "");
+          setFollowup(!!d.followup);
+          setFollowupDate(d.followupDate ?? "");
+          setFollowupNote(d.followupNote ?? "");
+        }
+      } catch {}
+      hydrated.current = true;
+    });
+    return () => { alive = false; };
   }, []);
 
   useEffect(() => {
@@ -87,14 +94,19 @@ export default function HospitalEvaluationPage() {
   }, [evaluatorName, evaluatorPhone, notes, result, followup, followupDate, followupNote]);
 
   /* ---- summary numbers (scoped to this hospital's slug) ---- */
-  const refreshStats = () => { getRepo().publicStatsPublic(slug).then(setStats).catch(() => {}); };
-  useEffect(() => { refreshStats(); }, [slug]);
+  const refreshStats = useCallback(() => {
+    getRepo().publicStatsPublic(slug).then(setStats).catch(() => {});
+  }, [slug]);
+  useEffect(() => { refreshStats(); }, [refreshStats]);
 
   /* ---- debounced staff search (scoped to this hospital's slug) ---- */
   useEffect(() => {
     if (selectedStaff) return;
     const q = staffQuery.trim();
-    if (q.length < 2) { setStaffResults([]); setSearchedFor(""); return; }
+    if (q.length < 2) {
+      void Promise.resolve().then(() => { setStaffResults([]); setSearchedFor(""); });
+      return;
+    }
     let alive = true;
     const timer = setTimeout(async () => {
       try {

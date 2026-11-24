@@ -14,11 +14,19 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = [], enabled =
   useEffect(() => {
     if (!enabled) return;
     let alive = true;
-    setLoading(true);
-    fn()
-      .then((d) => { if (alive) { setData(d); setError(null); } })
-      .catch((e) => { if (alive) setError(e instanceof Error ? e.message : "error"); })
-      .finally(() => { if (alive) setLoading(false); });
+    // Run in an async callback: a synchronous setState in the effect body would
+    // trigger a cascading render on every mount / dependency change.
+    void (async () => {
+      setLoading(true);
+      try {
+        const d = await fn();
+        if (alive) { setData(d); setError(null); }
+      } catch (e) {
+        if (alive) setError(e instanceof Error ? e.message : "error");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, tick, enabled]);

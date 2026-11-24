@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { hasSupabaseEnv } from "@/lib/env";
 import { clearDemoSession } from "@/lib/demo-auth";
@@ -67,6 +68,7 @@ function toInternalEmail(identifier: string): string {
 }
 
 export function UserProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const mode: "demo" | "live" = hasSupabaseEnv() ? "live" : "demo";
   const [user, setUser] = useState<SessionUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -113,22 +115,27 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, [applyProfile]);
 
   useEffect(() => {
-    load();
-    // restore the super_admin's hospital scope
-    let savedScope: string | null = null;
-    try {
-      const raw = localStorage.getItem(SCOPE_KEY);
-      savedScope = raw && raw !== "all" ? raw : null;
-    } catch {}
-    setScopeState(savedScope);
-    getRepo().setHospitalScope(savedScope);
-    if (!hasSupabaseEnv()) return;
+    let alive = true;
+    // Defer to a microtask so no state is set synchronously in the effect body.
+    void Promise.resolve().then(() => {
+      if (!alive) return;
+      void load();
+      // restore the super_admin's hospital scope
+      let savedScope: string | null = null;
+      try {
+        const raw = localStorage.getItem(SCOPE_KEY);
+        savedScope = raw && raw !== "all" ? raw : null;
+      } catch {}
+      setScopeState(savedScope);
+      getRepo().setHospitalScope(savedScope);
+    });
+    if (!hasSupabaseEnv()) return () => { alive = false; };
     const supabase = createClient();
     const { data: sub } = supabase.auth.onAuthStateChange(() => {
       // defer: calling supabase from inside this callback can deadlock the auth lock
       setTimeout(() => { load(); }, 0);
     });
-    return () => sub.subscription.unsubscribe();
+    return () => { alive = false; sub.subscription.unsubscribe(); };
   }, [load]);
 
   const signIn = useCallback<UserContextValue["signIn"]>(
@@ -158,8 +165,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setScopeState(null);
     getRepo().setHospitalScope(null);
     try { localStorage.removeItem(SCOPE_KEY); } catch {}
-    window.location.assign("/login");
-  }, []);
+    router.push("/login");
+  }, [router]);
 
   const setScope = useCallback((hospitalId: string | null) => {
     setScopeState(hospitalId);

@@ -35,11 +35,17 @@ export default function EscalationReviewPage() {
   }, [id]);
 
   // Fill the editor once the data arrives: a saved draft wins, otherwise generate the letter from the evaluations.
+  // The microtask keeps these updates out of the effect body (no cascading render).
   useEffect(() => {
     if (!data) return;
-    setNotes(data.esc.supervisor_notes ?? "");
-    if (data.esc.draft_text) setText(data.esc.draft_text);
-    else if (data.staff) setText(buildEscalationLetter({ staff: data.staff, evaluations: data.evaluations, lang }));
+    let alive = true;
+    void Promise.resolve().then(() => {
+      if (!alive) return;
+      setNotes(data.esc.supervisor_notes ?? "");
+      if (data.esc.draft_text) setText(data.esc.draft_text);
+      else if (data.staff) setText(buildEscalationLetter({ staff: data.staff, evaluations: data.evaluations, lang }));
+    });
+    return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 

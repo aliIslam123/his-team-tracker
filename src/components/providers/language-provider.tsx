@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useSyncExternalStore, ReactNode } from "react";
 import { translations, Lang, TranslationKey } from "@/lib/i18n";
 
 interface LanguageContextValue {
@@ -11,28 +11,38 @@ interface LanguageContextValue {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("ar");
-  const [ready, setReady] = useState(false);
+const LANGUAGE_KEY = "lang";
+const languageListeners = new Set<() => void>();
 
-  // restore the saved language once on the client (SSR always renders Arabic to avoid hydration mismatch)
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("lang");
-      if (stored === "ar" || stored === "en") setLangState(stored);
-    } catch {}
-    setReady(true);
-  }, []);
+/** localStorage is an external store: read it via useSyncExternalStore so the
+ *  saved language is available on the client after hydration without setting
+ *  state synchronously inside an effect (SSR still renders Arabic). */
+function readStoredLang(): Lang {
+  try { return localStorage.getItem(LANGUAGE_KEY) === "en" ? "en" : "ar"; } catch { return "ar"; }
+}
+function subscribeLang(cb: () => void) {
+  languageListeners.add(cb);
+  const onStorage = (e: StorageEvent) => { if (e.key === LANGUAGE_KEY || e.key === null) cb(); };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    languageListeners.delete(cb);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+const getLangServerSnapshot = () => "ar" as Lang;
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const lang = useSyncExternalStore(subscribeLang, readStoredLang, getLangServerSnapshot);
 
   useEffect(() => {
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
-    if (ready) {
-      try { localStorage.setItem("lang", lang); } catch {}
-    }
-  }, [lang, ready]);
+  }, [lang]);
 
-  const setLang = useCallback((l: Lang) => setLangState(l), []);
+  const setLang = useCallback((l: Lang) => {
+    try { localStorage.setItem(LANGUAGE_KEY, l); } catch {}
+    languageListeners.forEach((cb) => cb());
+  }, []);
   const t = useCallback(
     (key: TranslationKey | string) => {
       const dict = translations[lang] as Record<string, string>;

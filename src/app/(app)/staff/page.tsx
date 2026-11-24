@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Download, Plus, Search } from "lucide-react";
@@ -45,8 +45,22 @@ export default function StaffPage() {
   const [q, setQ] = useState("");
   const [job, setJob] = useState("all");
   const [dept, setDept] = useState("all");
-  const [status, setStatus] = useState<StatusFilter>("all");
+  // dashboard cards link here with ?filter=review etc. Read it in the initializer
+  // instead of an effect so no state is set synchronously after mount.
+  const [status, setStatus] = useState<StatusFilter>(() => {
+    if (typeof window === "undefined") return "all";
+    const f = new URLSearchParams(window.location.search).get("filter");
+    return f && (STATUS_FILTERS as readonly string[]).includes(f) ? (f as StatusFilter) : "all";
+  });
   const [page, setPage] = useState(0);
+  const [previousFilters, setPreviousFilters] = useState({ q, job, dept, status });
+
+  // Reset pagination while rendering when a filter changes (React's recommended
+  // "adjust state when props change" pattern — no cascading effect render).
+  if (previousFilters.q !== q || previousFilters.job !== job || previousFilters.dept !== dept || previousFilters.status !== status) {
+    setPreviousFilters({ q, job, dept, status });
+    setPage(0);
+  }
   const [resetTarget, setResetTarget] = useState<StaffMember | null>(null);
   const [clearTarget, setClearTarget] = useState<StaffMember | null>(null);
   const [resetReason, setResetReason] = useState("");
@@ -57,14 +71,6 @@ export default function StaffPage() {
     const [staff, departments] = await Promise.all([repo.listStaff(), repo.listDepartments()]);
     return { staff, departments };
   });
-
-  // dashboard cards link here with ?filter=review etc.
-  useEffect(() => {
-    const f = new URLSearchParams(window.location.search).get("filter");
-    if (f && (STATUS_FILTERS as readonly string[]).includes(f)) setStatus(f as StatusFilter);
-  }, []);
-
-  useEffect(() => { setPage(0); }, [q, job, dept, status]);
 
   const filtered = useMemo(() => {
     const nq = normalizeArabic(q);

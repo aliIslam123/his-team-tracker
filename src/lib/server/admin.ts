@@ -39,7 +39,7 @@ export function toErrorResponse(err: unknown): NextResponse {
   return NextResponse.json({ error: "error" }, { status: 500 });
 }
 
-/** Verifies the signed-in caller is allowed to manage accounts (super_admin or hospital_admin). */
+/** Verifies the signed-in caller is allowed to manage accounts (super_admin / hospital_admin only). */
 export async function requireUserManager(): Promise<Profile> {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();

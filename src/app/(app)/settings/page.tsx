@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { KeyRound } from "lucide-react";
@@ -18,6 +19,7 @@ export default function SettingsPage() {
   const { t, lang, setLang } = useLanguage();
   const { theme, setTheme } = useTheme();
   const { profile, role, mode, canManage } = useUser();
+  const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const downloadBackup = () => {
@@ -86,7 +88,7 @@ export default function SettingsPage() {
           resetDemoData();
           toast.success(t("success"));
           setConfirmOpen(false);
-          window.location.assign("/dashboard");
+          router.push("/dashboard");
         }}
       />
     </div>
