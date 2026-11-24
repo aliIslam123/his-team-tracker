@@ -209,7 +209,7 @@ export default function HospitalEvaluationPage() {
         <div className="relative py-4 text-center">
           {header}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="" className="mx-auto mb-2 h-28 w-28 object-contain" />
+          <img src="/logo.png" alt="حلول كامل" className="mx-auto mb-2 h-20 w-auto max-w-[300px] object-contain" />
           <h1 className="text-2xl font-bold">{t("form_title")}</h1>
           <p className="text-sm text-muted-foreground">{t("form_subtitle")}</p>
           <p className="mt-2 text-xs text-muted-foreground">created by Ali Abuelsoud and Ismail Ali</p>

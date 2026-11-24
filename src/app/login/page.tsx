@@ -58,8 +58,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-4">
         <div className="text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="" className="mx-auto mb-2 h-20 w-20 object-contain" />
-          <h1 className="text-2xl font-bold">{t("app_name")}</h1>
+          <img src="/logo.png" alt="حلول كامل" className="mx-auto mb-2 h-16 w-auto max-w-[280px] object-contain" />
           <p className="text-sm text-muted-foreground">{t("login")}</p>
         </div>
         <Card>
