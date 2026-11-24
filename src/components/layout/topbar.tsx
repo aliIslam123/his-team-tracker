@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Languages, Menu, Bell, Building2, FileText, KeyRound } from "lucide-react";
+import { Sun, Moon, Languages, Menu, Bell, Building2, FileText, KeyRound, UserRound } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { useUser } from "@/components/providers/user-provider";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,7 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
   }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur no-print">
+    <header className="sticky top-0 z-40 flex h-16 items-center gap-1 border-b bg-background/80 px-2 backdrop-blur no-print sm:gap-2 sm:px-4">
       <Button variant="ghost" size="icon" className="md:hidden" onClick={onMenuClick} aria-label={t("menu")}>
         <Menu className="h-5 w-5" />
       </Button>
@@ -42,7 +42,7 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
       {/* super_admin only: which hospital's data is being viewed (or all of them) */}
       {isSuper && hospitals.length > 0 && (
         <Select value={scope ?? "all"} onValueChange={(v) => setScope(v === "all" ? null : v)}>
-          <SelectTrigger className="h-9 w-44 gap-1" aria-label={t("hospital")}>
+          <SelectTrigger className="h-9 w-28 gap-1 sm:w-44" aria-label={t("hospital")}>
             <Building2 className="h-4 w-4 shrink-0" />
             <SelectValue />
           </SelectTrigger>
@@ -66,9 +66,9 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="gap-2">
+          <Button variant="ghost" size="sm" className="gap-1 px-2 sm:gap-2 sm:px-3">
             <Languages className="h-4 w-4" />
-            {lang === "ar" ? "العربية" : "English"}
+            <span className="hidden sm:inline">{lang === "ar" ? "العربية" : "English"}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
@@ -86,7 +86,10 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
       </Link>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="max-w-40 truncate">{profile?.full_name ?? "—"}</Button>
+          <Button variant="outline" size="sm" className="max-w-24 gap-1 truncate sm:max-w-40">
+            <UserRound className="h-4 w-4 sm:hidden" />
+            <span className="hidden truncate sm:inline">{profile?.full_name ?? "—"}</span>
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>{profile?.email || profile?.full_name}{role ? ` · ${t(`role_${role}`)}` : ""}</DropdownMenuLabel>

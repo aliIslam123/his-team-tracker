@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Noto_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
@@ -14,6 +14,18 @@ export const metadata: Metadata = {
   description: "Internal hospital HIS team tracking system",
   // internal system with patient-related data: keep it out of search engines
   robots: { index: false, follow: false },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Holool His" },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f4f7fb" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b1220" },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

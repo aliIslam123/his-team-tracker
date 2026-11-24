@@ -82,7 +82,24 @@
 }
 
 * { border-color: var(--border); }
-body { background: var(--background); color: var(--foreground); font-family: var(--font-arabic), "Segoe UI", Tahoma, system-ui, sans-serif; font-size: 16px; line-height: 1.6; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-arabic), "Segoe UI", Tahoma, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+/* Never let an image (logo, preview) force a horizontal scroll on a phone. */
+img { max-width: 100%; height: auto; }
+/* 16px inputs stop iOS Safari from zooming in when a field is focused. */
+input, select, textarea { font-size: 16px; }
+/* Flex children must be allowed to shrink instead of pushing the page wider. */
+header, main, aside, section, article { min-width: 0; }
+/* Faster, cleaner taps on touch screens (removes the 300ms double-tap delay). */
+button, a, input, select, textarea, label { touch-action: manipulation; }
 
 [dir="rtl"] { direction: rtl; text-align: right; }
 [dir="ltr"] { direction: ltr; text-align: left; }
