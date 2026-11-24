@@ -2,7 +2,7 @@ export type Lang = "ar" | "en";
 
 export const translations = {
   ar: {
-    app_name: "لوجو حلول كامل",
+    app_name: "حلول كامل",
     dashboard: "لوحة التحكم",
     staff_directory: "إدارة الموظفين",
     staff_profile: "ملف الموظف",
