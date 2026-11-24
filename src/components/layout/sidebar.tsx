@@ -44,7 +44,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     <div className="flex h-full flex-col">
       <Link href="/dashboard" onClick={onNavigate} className="flex items-center gap-3 border-b p-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="حلول كامل" className="h-9 w-auto max-w-[170px] object-contain" />
+        <img src="/logo.png" alt="Holool His" className="h-9 w-auto max-w-[170px] object-contain" />
       </Link>
       <nav className="flex-1 space-y-1 overflow-y-auto p-2">
         {items.map((item) => {

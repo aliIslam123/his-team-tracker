@@ -2,7 +2,7 @@ export type Lang = "ar" | "en";
 
 export const translations = {
   ar: {
-    app_name: "حلول كامل",
+    app_name: "Holool His",
     dashboard: "لوحة التحكم",
     staff_directory: "إدارة الموظفين",
     staff_profile: "ملف الموظف",
@@ -477,7 +477,7 @@ export const translations = {
     perm_notifications_send: "إرسال إشعارات للفريق",
   },
   en: {
-    app_name: "HIS Team Tracker",
+    app_name: "Holool His",
     dashboard: "Dashboard",
     staff_directory: "Staff Management",
     staff_profile: "Staff Profile",

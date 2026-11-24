@@ -9,7 +9,7 @@ import { Toaster } from "sonner";
 const arabic = Noto_Sans_Arabic({ variable: "--font-arabic", subsets: ["arabic", "latin"], display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: "حلول كامل", template: "%s · حلول كامل" },
+  title: { default: "Holool His", template: "%s · Holool His" },
   description: "Internal hospital HIS team tracking system",
 };
 
