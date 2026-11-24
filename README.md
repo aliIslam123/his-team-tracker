@@ -35,7 +35,7 @@ Internal tool for tracking staff registration on the hospital HIS. Field team me
 ### الصلاحيات (Permissions — المرحلة 2)
 
 - **مصدر واحد** لكل صلاحيات النظام: `src/lib/permissions.ts` في الواجهة، ودالة `public.has_permission()` في `supabase/migrations/0006_permissions.sql` في قاعدة البيانات. القائمتان متطابقتان بالضرورة.
-- الأدوار تحدد الـ **افتراضيات**: `super_admin` = الكل، `hospital_admin` = كل شيء عدا إدارة المستشفيات والمقارنة، `supervisor` = إدارة الموظفين/الاستيراد/المراجعات/المتابعات، `member` = لوحة التحليلات + تعديل الأسرّة المسندة له.
+- الأدوار تحدد الـ **افتراضيات**: `super_admin` = الكل، `hospital_admin` = كل شيء عدا إدارة المستشفيات والمقارنة، `supervisor` = إدارة الموظفين/الاستيراد/المراجعات/المتابعات + **إنشاء حسابات أعضاء فريق (`member`) داخل مستشفاه فقط** (بدون تعديل/إعادة تعيين كلمات المرور أو منح أدوار أعلى)، `member` = لوحة التحليلات + تعديل الأسرّة المسندة له.
 - أي صلاحية قابلة للتعطيل/التفعيل **لكل مستخدم** من `/admin/users` (تعديل → «صلاحيات إضافية»): التبديلات تُحفظ كـ overrides في `profiles.permissions` وتفرضها الـ RLS نفسها — وليس مجرد إخفاء أزرار.
 - `hospitals.manage` و`comparison.view` مفتاحان **للـ super_admin فقط دائمًا** ولا يمكن تفعيلهما لدور أدنى عبر أي override.
 - **إسناد الموظفين**: كل موظف له «المهندس المسؤول» (`assigned_to`) — يُحدد من شاشة تعديل الموظف (حسابات member فقط، ومن نفس المستشفى).
@@ -81,7 +81,7 @@ npm run dev
       set role = 'super_admin', username = 'admin', hospital_id = null
     where email = 'you@example.com';
    ```
-   الأدوار: `super_admin` (كل المستشفيات) · `hospital_admin` (كل صلاحيات مستشفاه) · `supervisor` (تعديل واعتماد تصعيدات واستيراد) · `member` (تقييمات ومتابعاته).
+   الأدوار: `super_admin` (كل المستشفيات) · `hospital_admin` (كل صلاحيات مستشفاه) · `supervisor` (تعديل واعتماد تصعيدات واستيراد + إضافة مهندسين `member` في مستشفاه فقط) · `member` (تقييمات ومتابعاته).
 4. ضع `NEXT_PUBLIC_SUPABASE_URL` و`NEXT_PUBLIC_SUPABASE_ANON_KEY` في `.env.local` (وفي Vercel)، وضع أيضًا `SUPABASE_SERVICE_ROLE_KEY` (سيرفر فقط — بدون `NEXT_PUBLIC_`) لأن شاشات إدارة الحسابات تعمل من خلاله.
 5. شارك مع كل مستشفى رابط نموذجها: `https://<domain>/h/<slug>` (يظهر بزر نسخ في `/admin/hospitals`).
 

@@ -559,6 +559,11 @@ export const demoRepo: Repo = {
   },
 
   async createUser(input: CreateUserInput) {
+    const actor = readDemoSessionUser();
+    // A hospital supervisor may only add engineers (member) to their own hospital.
+    if (actor?.role === "supervisor" && (!actor.hospital_id || actor.hospital_id !== input.hospital_id || input.role !== "member")) {
+      throw new Error("not_allowed");
+    }
     const d = db();
     const username = input.username.trim().toLowerCase();
     if (!USERNAME_RE.test(username)) throw new Error("invalid_username");
@@ -578,6 +583,7 @@ export const demoRepo: Repo = {
   },
 
   async updateUser(id, patch: UpdateUserInput) {
+    if (readDemoSessionUser()?.role === "supervisor") throw new Error("not_allowed");
     const d = db();
     const u = usersOf(d).find((x) => x.id === id);
     if (!u) throw new Error("user_not_found");
@@ -593,6 +599,7 @@ export const demoRepo: Repo = {
   },
 
   async resetUserPassword(id) {
+    if (readDemoSessionUser()?.role === "supervisor") throw new Error("not_allowed");
     const d = db();
     const u = usersOf(d).find((x) => x.id === id);
     if (!u) throw new Error("user_not_found");

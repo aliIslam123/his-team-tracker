@@ -65,7 +65,7 @@ language sql stable security definer set search_path = public as $$
                'activity.view','escalations.review','followups.manage','analytics.view','beds.manage')
              when 'supervisor'     then p_permission in (
                'staff.manage','staff.import','activity.view',
-               'escalations.review','followups.manage','analytics.view','beds.manage')
+               'escalations.review','followups.manage','analytics.view','beds.manage','users.manage')
              when 'member'         then p_permission in ('analytics.view','beds.assigned')
              else false
            end

@@ -11,6 +11,8 @@ export const dynamic = "force-dynamic";
 export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     const caller = await requireUserManager();
+    // Supervisors may create member accounts only — never reset passwords.
+    if (caller.role === "supervisor") throw new ApiError(403, "not_allowed");
     const svc = serviceClient();
     const { id } = await ctx.params;
 

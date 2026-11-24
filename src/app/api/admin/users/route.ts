@@ -42,6 +42,13 @@ export async function POST(request: NextRequest) {
     if (!(hospital as { is_active: boolean }).is_active) throw new ApiError(400, "invalid_hospital");
     if (caller.role === "hospital_admin" && caller.hospital_id !== hospitalId) throw new ApiError(403, "not_allowed");
 
+    // A hospital supervisor may only create team members (engineers) in their own hospital.
+    if (caller.role === "supervisor") {
+      if (!caller.hospital_id || caller.hospital_id !== hospitalId || role !== "member") {
+        throw new ApiError(403, "not_allowed");
+      }
+    }
+
     // hospital_admin may only hand out supervisor / member
     if (caller.role === "hospital_admin" && (role === "super_admin" || role === "hospital_admin")) {
       throw new ApiError(403, "not_allowed");

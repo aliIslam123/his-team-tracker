@@ -61,6 +61,7 @@ export const ROLE_PERMISSION_DEFAULTS: Record<Role, PermissionKey[]> = {
   supervisor: [
     "staff.manage",
     "staff.import",
+    "users.manage",
     "activity.view",
     "escalations.review",
     "followups.manage",

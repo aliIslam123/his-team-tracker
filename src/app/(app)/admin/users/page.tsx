@@ -82,7 +82,9 @@ function PasswordDialog({ password, onClose }: { password: string | null; onClos
 export default function UsersAdminPage() {
   const allowed = useRequirePermission("users.manage");
   const { t } = useLanguage();
-  const { isSuper, profile, hospitals } = useUser();
+  const { isSuper, profile, role, hospitals } = useUser();
+  // Supervisors can only ADD engineers (member accounts); they cannot edit/reset others.
+  const isSupervisorOnly = role === "supervisor";
 
   // hospital_admin is bound to their own hospital; super_admin picks one
   const [hospitalSel, setHospitalSel] = useState<string>("");
@@ -106,8 +108,8 @@ export default function UsersAdminPage() {
 
   if (!allowed) return <Loading />;
 
-  // hospital_admin may only hand out supervisor / member
-  const roleOptions: Role[] = isSuper ? ALL_ROLES : ["supervisor", "member"];
+  // supervisor may only hand out member; hospital_admin may hand out supervisor / member
+  const roleOptions: Role[] = isSupervisorOnly ? ["member"] : isSuper ? ALL_ROLES : ["supervisor", "member"];
 
   const submitCreate = async () => {
     if (!effectiveHospital) { toast.error(t("select_hospital")); return; }
@@ -238,7 +240,7 @@ export default function UsersAdminPage() {
                 <th className="p-3 text-start">{t("job_title")}</th>
                 <th className="p-3 text-start">{t("role")}</th>
                 <th className="p-3 text-start">{t("status")}</th>
-                <th className="p-3 text-start">{t("actions")}</th>
+                {!isSupervisorOnly && <th className="p-3 text-start">{t("actions")}</th>}
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -251,24 +253,26 @@ export default function UsersAdminPage() {
                   <td className="p-3">
                     <Badge variant={u.is_active ? "success" : "secondary"}>{u.is_active ? t("active") : t("inactive")}</Badge>
                   </td>
-                  <td className="p-3">
-                    <div className="flex flex-wrap gap-1">
-                      <Button type="button" variant="outline" size="sm" onClick={() => openEdit(u)}>
-                        <Pencil className="h-4 w-4" /> {t("edit")}
-                      </Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => setResetTarget(u)}>
-                        <KeyRound className="h-4 w-4" /> {t("reset_password")}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={u.is_active ? "ghost" : "outline"}
-                        size="sm"
-                        onClick={() => setDeactivate(u)}
-                      >
-                        <UserRound className="h-4 w-4" /> {u.is_active ? t("deactivate") : t("activate")}
-                      </Button>
-                    </div>
-                  </td>
+                  {!isSupervisorOnly && (
+                    <td className="p-3">
+                      <div className="flex flex-wrap gap-1">
+                        <Button type="button" variant="outline" size="sm" onClick={() => openEdit(u)}>
+                          <Pencil className="h-4 w-4" /> {t("edit")}
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => setResetTarget(u)}>
+                          <KeyRound className="h-4 w-4" /> {t("reset_password")}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={u.is_active ? "ghost" : "outline"}
+                          size="sm"
+                          onClick={() => setDeactivate(u)}
+                        >
+                          <UserRound className="h-4 w-4" /> {u.is_active ? t("deactivate") : t("activate")}
+                        </Button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

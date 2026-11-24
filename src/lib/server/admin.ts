@@ -39,7 +39,9 @@ export function toErrorResponse(err: unknown): NextResponse {
   return NextResponse.json({ error: "error" }, { status: 500 });
 }
 
-/** Verifies the signed-in caller is allowed to manage accounts (super_admin / hospital_admin only). */
+/** Verifies the signed-in caller is allowed to manage accounts.
+ *  supervisor is admitted for CREATE ONLY (member accounts in their own hospital);
+ *  the route handlers enforce that restriction. */
 export async function requireUserManager(): Promise<Profile> {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
@@ -47,7 +49,7 @@ export async function requireUserManager(): Promise<Profile> {
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).maybeSingle();
   const p = profile as Profile | null;
   if (!p) throw new ApiError(401, "not_authenticated");
-  if (p.role !== "super_admin" && p.role !== "hospital_admin") throw new ApiError(403, "not_allowed");
+  if (p.role !== "super_admin" && p.role !== "hospital_admin" && p.role !== "supervisor") throw new ApiError(403, "not_allowed");
   return p;
 }
 

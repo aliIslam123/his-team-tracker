@@ -13,6 +13,8 @@ export const dynamic = "force-dynamic";
 export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     const caller = await requireUserManager();
+    // Supervisors may create member accounts only — never edit existing accounts.
+    if (caller.role === "supervisor") throw new ApiError(403, "not_allowed");
     const svc = serviceClient();
     const { id } = await ctx.params;
     const patch = (await request.json()) as UpdateUserInput;
