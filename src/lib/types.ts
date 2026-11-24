@@ -415,4 +415,7 @@ export interface HospitalComparison {
   followups_open: number;
   followups_overdue: number;
   escalations_pending: number;
+  /** Bed follow-up records in this hospital, and how many still need work. */
+  beds_total: number;
+  beds_open: number;
 }

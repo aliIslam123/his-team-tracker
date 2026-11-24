@@ -79,6 +79,8 @@ export default function ComparisonPage() {
                     [t("evaluations"), h.evaluations_total],
                     [t("evaluations_7d"), h.evaluations_7d],
                     [t("followups_open"), h.followups_open],
+                    [t("beds_total"), h.beds_total],
+                    [t("beds_open"), h.beds_open],
                   ].map(([label, value]) => (
                     <div key={String(label)} className="rounded-md bg-muted p-2">
                       <p className="text-xs text-muted-foreground">{label}</p>
@@ -123,6 +125,8 @@ export default function ComparisonPage() {
                   <th className="p-3 text-start">{t("evaluations_7d")}</th>
                   <th className="p-3 text-start">{t("followups_open")}</th>
                   <th className="p-3 text-start">{t("followups_overdue")}</th>
+                  <th className="p-3 text-start">{t("beds_total")}</th>
+                  <th className="p-3 text-start">{t("beds_open")}</th>
                   <th className="p-3 text-start">{t("escalations_pending")}</th>
                   <th className="p-3 text-start">{t("registration_progress")}</th>
                 </tr>
@@ -141,6 +145,8 @@ export default function ComparisonPage() {
                     <td className="p-3">{h.evaluations_7d}</td>
                     <td className="p-3">{h.followups_open}</td>
                     <td className="p-3">{h.followups_overdue > 0 ? <span className="font-bold text-destructive">{h.followups_overdue}</span> : h.followups_overdue}</td>
+                    <td className="p-3">{h.beds_total}</td>
+                    <td className="p-3">{h.beds_open > 0 ? <span className="font-bold text-warning">{h.beds_open}</span> : h.beds_open}</td>
                     <td className="p-3">{h.escalations_pending}</td>
                     <td className="p-3">{pct(h)}%</td>
                   </tr>

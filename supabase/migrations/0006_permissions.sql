@@ -213,7 +213,8 @@ returns table (
   hospital_id uuid, hospital_name text, hospital_slug text, hospital_active boolean,
   staff_total bigint, staff_registered bigint, staff_pending bigint,
   evaluations_total bigint, evaluations_7d bigint,
-  followups_open bigint, followups_overdue bigint, escalations_pending bigint
+  followups_open bigint, followups_overdue bigint, escalations_pending bigint,
+  beds_total bigint, beds_open bigint
 )
 language plpgsql stable security definer set search_path = public as $$
 begin
@@ -237,7 +238,11 @@ begin
         where f.hospital_id = h.id and f.status not in ('completed','cancelled')
           and f.due_date < current_date),
       (select count(*) from public.escalation_drafts e
-        where e.hospital_id = h.id and e.status in ('draft','pending_review','returned'))
+        where e.hospital_id = h.id and e.status in ('draft','pending_review','returned')),
+      (select count(*) from public.bed_followups b where b.hospital_id = h.id),
+      (select count(*) from public.bed_followups b
+        where b.hospital_id = h.id
+          and not (coalesce(b.tasks, '{}'::jsonb) @> '{"diagnosis":true,"complaints":true,"procedures":true,"medicine":true,"oxygen_chest":true,"feeding":true,"apache":true,"lab":true,"vitals":true,"initial":true,"daily":true,"fluid":true,"turning":true,"invasive":true}'::jsonb))
     from public.hospitals h
     order by h.name;
 end;

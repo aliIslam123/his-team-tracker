@@ -1,6 +1,6 @@
 import { DEMO_STAFF } from "@/data/demo-staff";
 import { ESCALATION_THRESHOLD, OPEN_ESCALATION_STATUSES, getOption, normalizeArabic, normalizeDigits, pointsFor } from "@/lib/evaluation";
-import { cleanText, compareBeds, normalizeLocation } from "@/lib/beds";
+import { BED_TASKS, cleanText, compareBeds, normalizeLocation } from "@/lib/beds";
 import { slugifyName } from "@/lib/slug";
 import type {
   AuditRecord,
@@ -544,6 +544,10 @@ export const demoRepo: Repo = {
           followups_overdue: openFollowups.filter((f) => f.due_date < today).length,
           escalations_pending: d.escalations.filter(
             (e) => ids.has(e.staff_member_id) && (OPEN_ESCALATION_STATUSES as readonly string[]).includes(e.status)
+          ).length,
+          beds_total: (d.beds ?? []).filter((b) => rowHospital(b) === h.id).length,
+          beds_open: (d.beds ?? []).filter(
+            (b) => rowHospital(b) === h.id && !BED_TASKS.every((task) => b.tasks?.[task.key] === true)
           ).length,
         };
       });
