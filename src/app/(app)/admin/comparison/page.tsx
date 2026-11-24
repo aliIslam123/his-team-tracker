@@ -73,9 +73,9 @@ export default function ComparisonPage() {
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
                   {[
-                    [t("total_staff"), h.staff_total],
+                    [t("comparison_team"), h.staff_total],
                     [t("stat_registered"), h.staff_registered],
-                    [t("stat_pending"), h.staff_pending],
+                    [t("comparison_engineers"), h.staff_pending],
                     [t("evaluations"), h.evaluations_total],
                     [t("evaluations_7d"), h.evaluations_7d],
                     [t("followups_open"), h.followups_open],
@@ -118,9 +118,9 @@ export default function ComparisonPage() {
               <thead className="border-b bg-muted/50 text-xs text-muted-foreground">
                 <tr>
                   <th className="p-3 text-start">{t("hospital")}</th>
-                  <th className="p-3 text-start">{t("total_staff")}</th>
+                  <th className="p-3 text-start">{t("comparison_team")}</th>
                   <th className="p-3 text-start">{t("stat_registered")}</th>
-                  <th className="p-3 text-start">{t("stat_pending")}</th>
+                  <th className="p-3 text-start">{t("comparison_engineers")}</th>
                   <th className="p-3 text-start">{t("evaluations")}</th>
                   <th className="p-3 text-start">{t("evaluations_7d")}</th>
                   <th className="p-3 text-start">{t("followups_open")}</th>
