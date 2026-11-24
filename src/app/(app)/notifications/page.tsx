@@ -162,7 +162,7 @@ export default function NotificationsPage() {
             {mode === "person" && (
               <>
                 <div className="space-y-1">
-                  <Label>{t("notification_recipient")}</Label>
+                  <Label>{t("hospital")}</Label>
                   <Select value={teamHospital} onValueChange={setTeamHospital}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
