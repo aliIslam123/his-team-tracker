@@ -11,7 +11,6 @@ const arabic = Noto_Sans_Arabic({ variable: "--font-arabic", subsets: ["arabic",
 export const metadata: Metadata = {
   title: { default: "حلول كامل", template: "%s · حلول كامل" },
   description: "Internal hospital HIS team tracking system",
-  icons: { icon: "/logo.png" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
