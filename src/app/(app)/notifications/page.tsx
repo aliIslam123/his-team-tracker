@@ -41,6 +41,7 @@ export default function NotificationsPage() {
   const [sendOpen, setSendOpen] = useState(false);
   const [mode, setMode] = useState("all");
   const [recipient, setRecipient] = useState("");
+  const [teamHospital, setTeamHospital] = useState("all");
   const [selected, setSelected] = useState<string[]>([]);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -53,15 +54,18 @@ export default function NotificationsPage() {
   const candidates = (users ?? []).filter((u) => u.is_active);
   const hospitalName = (id: string | null) => hospitals.find((h) => h.id === id)?.name ?? "—";
   const isHospitalMode = mode.startsWith("hospital:");
+  const teamUsers = teamHospital === "all" ? candidates : candidates.filter((u) => u.hospital_id === teamHospital);
   const targets = mode === "all"
     ? candidates
     : isHospitalMode
       ? candidates.filter((u) => u.hospital_id === mode.slice("hospital:".length))
       : mode === "person"
-        ? candidates.filter((u) => u.id === recipient)
+        ? recipient === "all" ? teamUsers : teamUsers.filter((u) => u.id === recipient)
         : candidates.filter((u) => selected.includes(u.id));
   // super_admin stamps the chosen hospital (or null = all); others let the repo use their own hospital.
-  const hospitalForSend = isSuper ? (isHospitalMode ? mode.slice("hospital:".length) : null) : undefined;
+  const hospitalForSend = isSuper
+    ? (isHospitalMode ? mode.slice("hospital:".length) : mode === "person" && teamHospital !== "all" ? teamHospital : null)
+    : undefined;
 
   const send = async () => {
     if (!title.trim() || !body.trim()) { toast.error(t("notification_required")); return; }
@@ -76,6 +80,7 @@ export default function NotificationsPage() {
       setTitle("");
       setBody("");
       setRecipient("");
+      setTeamHospital("all");
       setSelected([]);
       setMode("all");
       reload();
@@ -155,17 +160,32 @@ export default function NotificationsPage() {
             </div>
 
             {mode === "person" && (
-              <div className="space-y-1">
-                <Label>{t("send_to_person")}</Label>
-                <Select value={recipient} onValueChange={setRecipient}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {candidates.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>{u.full_name} ({u.username ?? "—"}){isSuper && ` · ${hospitalName(u.hospital_id)}`}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <>
+                <div className="space-y-1">
+                  <Label>{t("notification_recipient")}</Label>
+                  <Select value={teamHospital} onValueChange={setTeamHospital}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t("send_to_all_hospitals")}</SelectItem>
+                      {hospitals.map((h) => (
+                        <SelectItem key={h.id} value={h.id}>{h.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>{t("send_to_person")}</Label>
+                  <Select value={recipient} onValueChange={setRecipient}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t("all_team_members")}</SelectItem>
+                      {teamUsers.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>{u.full_name} ({u.username ?? "—"}){isSuper && ` · ${hospitalName(u.hospital_id)}`}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
             )}
 
             {mode === "selected" && (
