@@ -52,7 +52,7 @@ create trigger staff_assignee_check before insert or update on public.staff_memb
 -- Keys (keep in sync with src/lib/permissions.ts):
 --   staff.manage · staff.import · staff.assign · users.manage · hospitals.manage
 --   activity.view · escalations.review · followups.manage · analytics.view
---   comparison.view · beds.manage · beds.assigned
+--   comparison.view · beds.manage · beds.assigned · notifications.send
 create or replace function public.has_permission(p_user_id uuid, p_permission text)
 returns boolean
 language sql stable security definer set search_path = public as $$
@@ -62,10 +62,10 @@ language sql stable security definer set search_path = public as $$
              when 'super_admin'    then true
              when 'hospital_admin' then p_permission in (
                'staff.manage','staff.import','staff.assign','users.manage',
-               'activity.view','escalations.review','followups.manage','analytics.view','beds.manage')
+               'activity.view','escalations.review','followups.manage','analytics.view','beds.manage','notifications.send')
              when 'supervisor'     then p_permission in (
                'staff.manage','staff.import','activity.view',
-               'escalations.review','followups.manage','analytics.view','beds.manage','users.manage')
+               'escalations.review','followups.manage','analytics.view','beds.manage','users.manage','notifications.send')
              when 'member'         then p_permission in ('analytics.view','beds.assigned')
              else false
            end

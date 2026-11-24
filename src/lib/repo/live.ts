@@ -479,6 +479,22 @@ export const liveRepo: Repo = {
     return (data as Notification[]) ?? [];
   },
 
+  async sendNotification(input) {
+    const title = input.title.trim();
+    const body = input.body.trim();
+    if (!title || !body) throw new Error("invalid_message");
+    const { error } = await sb().from("notifications").insert({
+      hospital_id: await hospitalForWrite(),
+      recipient_id: input.recipientId,
+      title,
+      body,
+      type: "message",
+      link: null,
+    });
+    if (error) fail(error);
+    await writeAudit({ action: "notification_sent", entity_type: "notification", entity_id: input.recipientId, new_values: { title } });
+  },
+
   async markNotificationRead(id) {
     const { error } = await sb().from("notifications").update({ is_read: true }).eq("id", id);
     if (error) fail(error);

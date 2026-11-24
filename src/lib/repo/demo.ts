@@ -772,16 +772,40 @@ export const demoRepo: Repo = {
   },
 
   async listNotifications() {
-    return db().notifications.slice().sort((a, b) => b.created_at.localeCompare(a.created_at));
+    const uid = readDemoSessionUser()?.id;
+    if (!uid) return [];
+    return db().notifications
+      .filter((n) => n.recipient_id === uid)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  },
+
+  async sendNotification(input) {
+    const actor = readDemoSessionUser();
+    if (!actor || !["super_admin", "hospital_admin", "supervisor"].includes(actor.role)) throw new Error("not_allowed");
+    const d = db();
+    const recipient = usersOf(d).find((u) => u.id === input.recipientId);
+    if (!recipient) throw new Error("user_not_found");
+    if (actor.role !== "super_admin" && recipient.hospital_id !== actor.hospital_id) throw new Error("not_allowed");
+    const title = input.title.trim();
+    const body = input.body.trim();
+    if (!title || !body) throw new Error("invalid_message");
+    d.notifications.unshift({
+      id: newId(), recipient_id: recipient.id, title, body, type: "message", link: null,
+      is_read: false, created_at: nowIso(),
+    });
+    audit(d, { action: "notification_sent", entity_type: "notification", entity_id: recipient.id, new_values: { title, recipient: recipient.username } });
+    save();
   },
 
   async markNotificationRead(id) {
-    const n = db().notifications.find((x) => x.id === id);
+    const uid = readDemoSessionUser()?.id;
+    const n = db().notifications.find((x) => x.id === id && x.recipient_id === uid);
     if (n) { n.is_read = true; save(); }
   },
 
   async markAllNotificationsRead() {
-    db().notifications.forEach((n) => { n.is_read = true; });
+    const uid = readDemoSessionUser()?.id;
+    db().notifications.forEach((n) => { if (n.recipient_id === uid) n.is_read = true; });
     save();
   },
 

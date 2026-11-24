@@ -71,8 +71,9 @@ npm run dev
    3. `supabase/migrations/0004_bed_followups.sql`  ← متابعة الأسرّة (`/beds`)
    4. `supabase/migrations/0005_hospitals.sql`  ← **مستشفيات متعددة + حسابات بلا تسجيل ذاتي + RLS معزول**
    5. `supabase/migrations/0006_permissions.sql`  ← **نظام صلاحيات موحد + إسناد الموظفين + عزل سجل العضو + مقارنة المستشفيات**
-   6. `supabase/seed.sql` (الأقسام)
-   7. `supabase/seed_staff.sql` (قائمة الموظفين)
+   6. `supabase/migrations/0008_notifications.sql`  ← **إرسال الإشعارات من المشرف/المدير + تأمين RLS**
+   7. `supabase/seed.sql` (الأقسام)
+   8. `supabase/seed_staff.sql` (قائمة الموظفين)
 2. **اقفل التسجيل الذاتي**: من لوحة Supabase → **Authentication → Providers → Email** أطفئ **Enable Sign-ups** (بذلك لا يمكن لأحد إنشاء حساب بنفسه؛ الحسابات تُنشأ من شاشة الأدمن فقط).
 3. أنشئ أول **super_admin** من **Authentication → Users** (أو دعه ينشأ من شاشة الأدمن لاحقًا)، ثم اربطه بالدور والمستشفى:
    ```sql
@@ -105,7 +106,7 @@ src/components/         layout (القائمة/الشريط/الحماية) + sh
 src/lib/beds.ts         قائمة مهام متابعة الأسرّة (أطباء/تمريض) + قراءة الشيت القديم + ألوان التواريخ
 src/lib/server/admin.ts أدوات إدارة الحسابات (سيرفر فقط): مفتاح الخدمة + توليد كلمات المرور
 src/hooks/use-require-permission.ts — حماة الصفحات للـ client-side (مرحلة 2)
-supabase/migrations/    0001 الجداول · 0002 الدوال والصلاحيات · 0004 متابعة الأسرّة · 0005 المستشفيات والـ RLS · 0006 الصلاحيات والمقارنة
+supabase/migrations/    0001 الجداول · 0002 الدوال والصلاحيات · 0004 متابعة الأسرّة · 0005 المستشفيات والـ RLS · 0006 الصلاحيات والمقارنة · 0008 إرسال الإشعارات
 supabase/tests/         0005_rls_tests.sql اختبارات العزل (مستشفيان، داخل معاملة واحدة) · 0006_permissions_tests.sql اختبارات الصلاحيات
 ```
 

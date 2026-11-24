@@ -19,6 +19,7 @@ import type { Role } from "@/lib/types";
  *   comparison.view     the cross-hospital comparison dashboard (super_admin only — forced)
  *   beds.manage         add / delete beds, edit owner / location / number, import beds
  *   beds.assigned       edit the beds assigned to him (boxes, dates, patient name, notes)
+ *   notifications.send  send messages/notifications to engineers in the same hospital
  *
  * profiles.permissions (jsonb) holds per-user overrides: {"staff.import": false} removes an
  * ability the role would otherwise have, {"analytics.view": true} adds one. Users can never
@@ -37,6 +38,7 @@ export const PERMISSION_KEYS = [
   "comparison.view",
   "beds.manage",
   "beds.assigned",
+  "notifications.send",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -57,6 +59,7 @@ export const ROLE_PERMISSION_DEFAULTS: Record<Role, PermissionKey[]> = {
     "followups.manage",
     "analytics.view",
     "beds.manage",
+    "notifications.send",
   ],
   supervisor: [
     "staff.manage",
@@ -67,6 +70,7 @@ export const ROLE_PERMISSION_DEFAULTS: Record<Role, PermissionKey[]> = {
     "followups.manage",
     "analytics.view",
     "beds.manage",
+    "notifications.send",
   ],
   member: ["analytics.view", "beds.assigned"],
 };
@@ -85,6 +89,7 @@ export const PERMISSION_LABEL_KEY: Record<PermissionKey, string> = {
   "comparison.view": "perm_comparison_view",
   "beds.manage": "perm_beds_manage",
   "beds.assigned": "perm_beds_assigned",
+  "notifications.send": "perm_notifications_send",
 };
 
 /**

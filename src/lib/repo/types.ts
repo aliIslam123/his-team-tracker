@@ -84,6 +84,8 @@ export interface Repo {
 
   /* notifications / audit */
   listNotifications(): Promise<Notification[]>;
+  /** Managers (super_admin / hospital_admin / supervisor) send a message to one engineer. */
+  sendNotification(input: { recipientId: string; title: string; body: string }): Promise<void>;
   markNotificationRead(id: string): Promise<void>;
   markAllNotificationsRead(): Promise<void>;
   listAudits(limit?: number): Promise<AuditRecord[]>;
