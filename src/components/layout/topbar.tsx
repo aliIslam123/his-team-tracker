@@ -30,7 +30,7 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
     run();
     const timer = setInterval(run, 60000);
     return () => { alive = false; clearInterval(timer); };
-  }, [pathname]);
+  }, [pathname, scope]);
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-1 border-b bg-background/80 px-2 backdrop-blur no-print sm:gap-2 sm:px-4">
