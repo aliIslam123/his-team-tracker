@@ -420,4 +420,7 @@ export interface HospitalComparison {
   beds_open: number;
   /** User accounts created for this hospital (the "team" in /admin/users). */
   team_total: number;
+  /** Beds with a patient name registered vs. beds still waiting for a name. */
+  registered_beds: number;
+  pending_beds: number;
 }

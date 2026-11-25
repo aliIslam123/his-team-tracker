@@ -1,0 +1,54 @@
+-- Holool His — 0012: "registered" and "pending" in the comparison mean patients
+-- on the bed board, not staff registrations.
+-- Run AFTER 0011_comparison_team.sql. Safe to re-run (idempotent).
+--   registered_beds = beds with a patient name recorded
+--   pending_beds    = beds still waiting for a patient name
+
+create or replace function public.compare_hospitals()
+returns table (
+  hospital_id uuid, hospital_name text, hospital_slug text, hospital_active boolean,
+  staff_total bigint, staff_registered bigint, staff_pending bigint,
+  evaluations_total bigint, evaluations_7d bigint,
+  followups_open bigint, followups_overdue bigint, escalations_pending bigint,
+  beds_total bigint, beds_open bigint, team_total bigint,
+  registered_beds bigint, pending_beds bigint
+)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.is_super_admin() then raise exception 'not_allowed'; end if;
+  return query
+    select h.id, h.name, h.slug, h.is_active,
+      (select count(*) from public.staff_members s
+        where s.hospital_id = h.id and s.is_active),
+      (select count(*) from public.staff_members s
+        where s.hospital_id = h.id and s.is_active and s.registration_status = 'registered'),
+      (select count(*) from public.staff_members s
+        where s.hospital_id = h.id and s.is_active and s.registration_status <> 'registered'),
+      (select count(*) from public.interactions i
+        where i.hospital_id = h.id and i.interaction_type = 'evaluation'),
+      (select count(*) from public.interactions i
+        where i.hospital_id = h.id and i.interaction_type = 'evaluation'
+          and i.created_at > now() - interval '7 days'),
+      (select count(*) from public.follow_ups f
+        where f.hospital_id = h.id and f.status not in ('completed','cancelled')),
+      (select count(*) from public.follow_ups f
+        where f.hospital_id = h.id and f.status not in ('completed','cancelled')
+          and f.due_date < current_date),
+      (select count(*) from public.escalation_drafts e
+        where e.hospital_id = h.id and e.status in ('draft','pending_review','returned')),
+      (select count(*) from public.bed_followups b where b.hospital_id = h.id),
+      (select count(*) from public.bed_followups b
+        where b.hospital_id = h.id
+          and not (coalesce(b.tasks, '{}'::jsonb) @> '{"diagnosis":true,"complaints":true,"procedures":true,"medicine":true,"oxygen_chest":true,"feeding":true,"apache":true,"lab":true,"vitals":true,"initial":true,"daily":true,"fluid":true,"turning":true,"invasive":true}'::jsonb)),
+      (select count(*) from public.profiles p where p.hospital_id = h.id),
+      (select count(*) from public.bed_followups b
+        where b.hospital_id = h.id and nullif(btrim(b.patient_name), '') is not null),
+      (select count(*) from public.bed_followups b
+        where b.hospital_id = h.id and nullif(btrim(b.patient_name), '') is null)
+    from public.hospitals h
+    order by h.name;
+end;
+$$;
+
+revoke all on function public.compare_hospitals() from public, anon;
+grant execute on function public.compare_hospitals() to authenticated;

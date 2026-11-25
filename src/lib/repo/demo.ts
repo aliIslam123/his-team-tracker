@@ -550,6 +550,12 @@ export const demoRepo: Repo = {
             (b) => rowHospital(b) === h.id && !BED_TASKS.every((task) => b.tasks?.[task.key] === true)
           ).length,
           team_total: usersOf(d).filter((u) => u.hospital_id === h.id).length,
+          registered_beds: (d.beds ?? []).filter(
+            (b) => rowHospital(b) === h.id && Boolean(b.patient_name?.trim())
+          ).length,
+          pending_beds: (d.beds ?? []).filter(
+            (b) => rowHospital(b) === h.id && !b.patient_name?.trim()
+          ).length,
         };
       });
   },

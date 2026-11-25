@@ -74,9 +74,9 @@ export default function ComparisonPage() {
                 <div className="grid grid-cols-3 gap-2 text-center">
                   {[
                     [t("comparison_team"), h.team_total],
-                    [t("stat_registered"), h.staff_registered],
+                    [t("stat_registered"), h.registered_beds],
                     [t("comparison_beds"), h.beds_total],
-                    [t("comparison_awaiting_engineer"), h.beds_open],
+                    [t("comparison_awaiting_engineer"), h.pending_beds],
                   ].map(([label, value]) => (
                     <div key={String(label)} className="rounded-md bg-muted p-2">
                       <p className="text-xs text-muted-foreground">{label}</p>
@@ -131,9 +131,9 @@ export default function ComparisonPage() {
                       <span className="ms-2 text-xs text-muted-foreground" dir="ltr">{h.hospital_slug}</span>
                     </td>
                     <td className="p-3">{h.team_total}</td>
-                    <td className="p-3">{h.staff_registered}</td>
+                    <td className="p-3">{h.registered_beds}</td>
                     <td className="p-3">{h.beds_total}</td>
-                    <td className="p-3">{h.beds_open > 0 ? <span className="font-bold text-warning">{h.beds_open}</span> : h.beds_open}</td>
+                    <td className="p-3">{h.pending_beds > 0 ? <span className="font-bold text-warning">{h.pending_beds}</span> : h.pending_beds}</td>
                     <td className="p-3">{h.followups_overdue > 0 ? <span className="font-bold text-destructive">{h.followups_overdue}</span> : h.followups_overdue}</td>
                     <td className="p-3">{h.escalations_pending}</td>
                     <td className="p-3">{pct(h)}%</td>
