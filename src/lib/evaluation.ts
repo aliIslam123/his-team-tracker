@@ -2,6 +2,17 @@ import type { Lang } from "@/lib/i18n";
 
 export type EvalGroup = "positive" | "negative" | "neutral";
 
+/** Link that opens the public form with a staff member already selected. */
+export function evaluationHref(formHref: string, staff: { id: string; full_name: string; job_type: string; his_user_id: string | null }) {
+  const params = new URLSearchParams({
+    staff: staff.id,
+    name: staff.full_name,
+    job: staff.job_type,
+    his: staff.his_user_id ?? "",
+  });
+  return `${formHref}?${params.toString()}`;
+}
+
 export interface EvalOption {
   id: string;
   group: EvalGroup;

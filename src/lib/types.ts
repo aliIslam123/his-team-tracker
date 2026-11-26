@@ -276,6 +276,7 @@ export interface FollowupRecord {
   id: string;
   staff_member_id: string;
   staff_name: string;
+  assigned_to?: string | null;
   due_date: string;
   notes: string | null;
   priority: "low" | "medium" | "high";

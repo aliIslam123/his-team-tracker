@@ -6,13 +6,13 @@ import { FullPageSpinner } from "@/components/shared";
 
 /** The old public form now lives at /h/<hospital-slug>; "/" just routes signed-in users in. */
 export default function HomePage() {
-  const { loading, isAuthed } = useUser();
+  const { loading, isAuthed, role } = useUser();
   const router = useRouter();
 
   useEffect(() => {
     if (loading) return;
-    router.replace(isAuthed ? "/dashboard" : "/login");
-  }, [loading, isAuthed, router]);
+    router.replace(!isAuthed ? "/login" : role === "member" ? "/my-tasks" : "/dashboard");
+  }, [loading, isAuthed, role, router]);
 
   return <FullPageSpinner />;
 }

@@ -69,6 +69,20 @@ export default function HospitalEvaluationPage() {
     void Promise.resolve().then(() => {
       if (!alive) return;
       try {
+        // A link from a follow-up / staff profile preselects the employee.
+        const params = new URLSearchParams(window.location.search);
+        const sid = params.get("staff");
+        const sname = params.get("name");
+        if (sid && sname) {
+          setSelectedStaff({
+            id: sid,
+            full_name: sname,
+            job_type: (params.get("job") || "Doctor") as JobType,
+            his_user_id: params.get("his") || null,
+          });
+          setStaffQuery(sname);
+          setSearchedFor(sname);
+        }
         const who = JSON.parse(localStorage.getItem(EVALUATOR_KEY) ?? "null");
         if (who) { setEvaluatorName(who.name ?? ""); setEvaluatorPhone(who.phone ?? ""); }
         const d = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "null");

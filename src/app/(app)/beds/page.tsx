@@ -141,7 +141,8 @@ function BedIdentity({ bed }: { bed: BedRecord }) {
 
 export default function BedsPage() {
   const { t } = useLanguage();
-  const { canManage } = useUser();
+  const { canManage, canDo, role, profile } = useUser();
+  const mayManageBeds = canDo("beds.manage");
   const { data, loading, error, setData } = useLoad(() => getRepo().listBeds());
   const pending = useRef(0); // writes in flight: a background refresh must not overwrite them
 
@@ -191,7 +192,8 @@ export default function BedsPage() {
   const beds = useMemo(() => data ?? [], [data]);
   const owners = useMemo(() => [...new Set(beds.map((b) => b.owner_name).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ar")), [beds]);
   const locations = useMemo(() => [...new Set(beds.map((b) => b.location).filter(Boolean))].sort((a, b) => a.localeCompare(b, "en", { numeric: true })), [beds]);
-  const activeOwner = owners.includes(owner) ? owner : "";
+  const myBedsOwner = role === "member" && profile?.full_name && owners.includes(profile.full_name) ? profile.full_name : "";
+  const activeOwner = owners.includes(owner) ? owner : myBedsOwner;
 
   const scoped = useMemo(() => {
     const q = normalizeArabic(search);
@@ -293,8 +295,8 @@ export default function BedsPage() {
               <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />{t("beds_refresh")}
             </Button>
             {beds.length > 0 && <Button type="button" variant="outline" size="sm" onClick={exportAll}><Download className="h-4 w-4" />{t("beds_export")}</Button>}
-            {canManage && <Button type="button" variant="outline" size="sm" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" />{t("beds_import")}</Button>}
-            <Button type="button" size="sm" onClick={() => setDialog({ bed: null })}><Plus className="h-4 w-4" />{t("beds_add")}</Button>
+            {mayManageBeds && <Button type="button" variant="outline" size="sm" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" />{t("beds_import")}</Button>}
+            {mayManageBeds && <Button type="button" size="sm" onClick={() => setDialog({ bed: null })}><Plus className="h-4 w-4" />{t("beds_add")}</Button>}
           </>
         }
       />

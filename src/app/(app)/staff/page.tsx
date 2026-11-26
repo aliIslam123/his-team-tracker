@@ -41,7 +41,7 @@ function matchesFilter(s: StaffMember, f: StatusFilter): boolean {
 
 export default function StaffPage() {
   const { t, lang } = useLanguage();
-  const { canManage } = useUser();
+  const { canManage, canDo, user } = useUser();
   const [q, setQ] = useState("");
   const [job, setJob] = useState("all");
   const [dept, setDept] = useState("all");
@@ -52,13 +52,14 @@ export default function StaffPage() {
     const f = new URLSearchParams(window.location.search).get("filter");
     return f && (STATUS_FILTERS as readonly string[]).includes(f) ? (f as StatusFilter) : "all";
   });
+  const [assign, setAssign] = useState("all");
   const [page, setPage] = useState(0);
-  const [previousFilters, setPreviousFilters] = useState({ q, job, dept, status });
+  const [previousFilters, setPreviousFilters] = useState({ q, job, dept, status, assign });
 
   // Reset pagination while rendering when a filter changes (React's recommended
   // "adjust state when props change" pattern — no cascading effect render).
-  if (previousFilters.q !== q || previousFilters.job !== job || previousFilters.dept !== dept || previousFilters.status !== status) {
-    setPreviousFilters({ q, job, dept, status });
+  if (previousFilters.q !== q || previousFilters.job !== job || previousFilters.dept !== dept || previousFilters.status !== status || previousFilters.assign !== assign) {
+    setPreviousFilters({ q, job, dept, status, assign });
     setPage(0);
   }
   const [resetTarget, setResetTarget] = useState<StaffMember | null>(null);
@@ -79,10 +80,12 @@ export default function StaffPage() {
       if (!matchesFilter(s, status)) return false;
       if (job !== "all" && s.job_type !== job) return false;
       if (dept !== "all" && s.department_id !== dept) return false;
+      if (assign === "mine" && s.assigned_to !== user?.id) return false;
+      if (assign === "unassigned" && s.assigned_to) return false;
       if (!nq) return true;
       return normalizeArabic(s.full_name).includes(nq) || (s.his_user_id ?? "").includes(digits);
     });
-  }, [data, q, job, dept, status]);
+  }, [data, q, job, dept, status, assign, user?.id]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const shown = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -168,6 +171,16 @@ export default function StaffPage() {
                 {STATUS_FILTERS.map((f) => <SelectItem key={f} value={f}>{t(`filter_${f}`)}</SelectItem>)}
               </SelectContent>
             </Select>
+            {canDo("staff.assign") && (
+              <Select value={assign} onValueChange={setAssign}>
+                <SelectTrigger className="md:w-44" aria-label={t("assignee")}><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("assignee")}</SelectItem>
+                  <SelectItem value="mine">{t("assigned_to_me")}</SelectItem>
+                  <SelectItem value="unassigned">{t("unassigned")}</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -186,6 +199,7 @@ export default function StaffPage() {
                       <th className="p-2 text-start">{t("full_name")}</th>
                       <th className="p-2 text-start">{t("job_type")}</th>
                       <th className="p-2 text-start">{t("department")}</th>
+                      {canDo("staff.assign") && <th className="p-2 text-start">{t("assignee")}</th>}
                       <th className="p-2 text-start">{t("his_user_id")}</th>
                       <th className="p-2 text-start">{t("status")}</th>
                       <th className="p-2 text-center">{t("score")}</th>
@@ -202,13 +216,14 @@ export default function StaffPage() {
                         </td>
                         <td className="p-2">{s.job_type}</td>
                         <td className="p-2">{(lang === "ar" ? s.department?.name_ar : s.department?.name_en) || "-"}</td>
+                        {canDo("staff.assign") && <td className="p-2">{s.assignee?.full_name ?? (s.assigned_to ? "—" : t("unassigned"))}</td>}
                         <td className="p-2" dir="ltr">{s.his_user_id || "-"}</td>
                         <td className="p-2"><RegistrationBadge status={s.registration_status} /></td>
                         <td className="p-2 text-center"><ScoreBadge score={s.manual_score} /></td>
                         <td className="p-2">
                           <div className="flex flex-wrap gap-1">
                             <Link href={`/staff/${s.id}`}><Button size="sm" variant="outline">{t("view_profile")}</Button></Link>
-                            {canManage && (
+                            {canDo("staff.clear") && (
                               <Button size="sm" variant="destructive" onClick={() => setClearTarget(s)}>{t("reset_evaluations")}</Button>
                             )}
                             {canManage && s.manual_score !== 0 && (

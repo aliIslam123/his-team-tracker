@@ -76,8 +76,10 @@ npm run dev
    8. `supabase/migrations/0010_comparison_beds.sql`  ← **عدد متابعات الأسرّة والأسرّة التي تحتاج متابعة في مقارنة المستشفيات**
    9. `supabase/migrations/0011_comparison_team.sql`  ← **«فريق العمل» من الحسابات، و«السراير» و«بانتظار المهندس» من متابعة الأسرّة**
    10. `supabase/migrations/0012_comparison_patients.sql`  ← **«مسجل» و«بالانتظار» بقى فيه عدد المرضى المسجّلين/المنتظرين على الأسرّة**
-   11. `supabase/seed.sql` (الأقسام)
-   12. `supabase/seed_staff.sql` (قائمة الموظفين — يربطهم تلقائيًا بمستشفى «عين شمس»)
+   11. `supabase/migrations/0013_permissions_and_scope.sql`  ← **فرض staff.assign + إصلاح متابعات المهندس + عزل قراءات العضو**
+   12. `supabase/migrations/0014_permission_defaults.sql`  ← **مطابقة صلاحيات الأدوار لـ permissions.ts**
+   13. `supabase/seed.sql` (الأقسام)
+   14. `supabase/seed_staff.sql` (قائمة الموظفين — يربطهم تلقائيًا بمستشفى «عين شمس»)
 
    > لا يوجد migration برقم `0007` عمدًا (ربط الأسرّة بحساب المهندس مرحلة مؤجلة). التسلسل ليس خطأ.
 2. **اقفل التسجيل الذاتي**: من لوحة Supabase → **Authentication → Providers → Email** أطفئ **Enable Sign-ups** (بذلك لا يمكن لأحد إنشاء حساب بنفسه؛ الحسابات تُنشأ من شاشة الأدمن فقط).

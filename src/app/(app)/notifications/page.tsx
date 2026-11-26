@@ -22,8 +22,8 @@ import { errorKey } from "@/lib/errors";
 
 export default function NotificationsPage() {
   const { t, lang } = useLanguage();
-  const { role, isSuper, hospitals } = useUser();
-  const canSend = can(role, "notifications.send");
+  const { role, permissions, isSuper, hospitals, hospital } = useUser();
+  const canSend = can(role, "notifications.send", permissions);
 
   const { data, loading, error, reload } = useLoad(() => getRepo().listNotifications());
 
@@ -48,7 +48,8 @@ export default function NotificationsPage() {
     try { await fn(); reload(); } catch (err) { toast.error(t(errorKey(err))); }
   };
 
-  const candidates = (users ?? []).filter((u) => u.is_active);
+  // Only engineers receive team messages — not admins, supervisors or yourself.
+  const candidates = (users ?? []).filter((u) => u.is_active && u.role === "member");
   const hospitalName = (id: string | null) => hospitals.find((h) => h.id === id)?.name ?? "—";
   const teamUsers = teamHospital === "all" ? candidates : candidates.filter((u) => u.hospital_id === teamHospital);
   const targets = recipient === "all" ? teamUsers : teamUsers.filter((u) => u.id === recipient);
@@ -135,8 +136,8 @@ export default function NotificationsPage() {
               <Select value={teamHospital} onValueChange={(v) => { setTeamHospital(v); setRecipient("all"); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {isSuper && <SelectItem value="all">{t("send_to_all_hospitals")}</SelectItem>}
-                  {hospitals.map((h) => (
+                  <SelectItem value="all">{isSuper ? t("send_to_all_hospitals") : hospital?.name ?? t("all_users")}</SelectItem>
+                  {isSuper && hospitals.map((h) => (
                     <SelectItem key={h.id} value={h.id}>{h.name}</SelectItem>
                   ))}
                 </SelectContent>

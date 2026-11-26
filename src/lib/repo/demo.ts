@@ -1,6 +1,7 @@
 import { DEMO_STAFF } from "@/data/demo-staff";
 import { ESCALATION_THRESHOLD, OPEN_ESCALATION_STATUSES, getOption, normalizeArabic, normalizeDigits, pointsFor } from "@/lib/evaluation";
 import { BED_TASKS, cleanText, compareBeds, normalizeLocation } from "@/lib/beds";
+import { can } from "@/lib/permissions";
 import { slugifyName } from "@/lib/slug";
 import type {
   AuditRecord,
@@ -257,7 +258,11 @@ function inScope(hospitalId: string | null | undefined): boolean {
 /* ------------------------------------------------------------------ */
 
 const toLite = (s: StaffMember): StaffLite => ({ id: s.id, full_name: s.full_name, job_type: s.job_type, his_user_id: s.his_user_id });
-const withDept = (s: StaffMember): StaffMember => ({ ...s, department: DEMO_DEPARTMENTS.find((d) => d.id === s.department_id) ?? null });
+const withDept = (s: StaffMember): StaffMember => ({
+  ...s,
+  department: DEMO_DEPARTMENTS.find((d) => d.id === s.department_id) ?? null,
+  assignee: s.assigned_to ? { full_name: usersOf(db()).find((u) => u.id === s.assigned_to)?.full_name ?? "—" } : null,
+});
 
 function audit(d: DemoDB, a: Pick<AuditRecord, "action" | "entity_type" | "entity_id"> & Partial<AuditRecord>) {
   d.audits.unshift({
@@ -454,7 +459,7 @@ export const demoRepo: Repo = {
     if (input.followupDate) {
       d.followups.unshift({
         id: newId(), staff_member_id: staff.id, staff_name: staff.full_name, due_date: input.followupDate,
-        notes: input.followupNote?.trim() || null, priority: "medium", status: "scheduled", created_at: t, completed_at: null,
+        notes: input.followupNote?.trim() || null, priority: "medium", status: "scheduled", created_at: t, completed_at: null, assigned_to: null,
       });
     }
 
@@ -651,9 +656,12 @@ export const demoRepo: Repo = {
   },
 
   async updateStaff(id, patch: StaffPatch) {
+    const actor = readDemoSessionUser();
     const d = db();
     const s = d.staff.find((x) => x.id === id);
     if (!s) throw new Error("staff_not_found");
+    if (patch.assigned_to !== undefined && (s.assigned_to ?? null) !== (patch.assigned_to ?? null)
+      && !can(actor?.role, "staff.assign", actor?.permissions)) throw new Error("not_allowed");
     const his = patch.his_user_id === undefined ? s.his_user_id : patch.his_user_id?.trim() || null;
     if (his && d.staff.some((x) => x.id !== id && x.his_user_id === his)) throw new Error("duplicate_his_id");
     // mirrors validate_staff_assignee(): assignee must be an active member of the same hospital
@@ -691,6 +699,8 @@ export const demoRepo: Repo = {
   },
 
   async clearEvaluations(id, reason) {
+    const actor = readDemoSessionUser();
+    if (!can(actor?.role, "staff.clear", actor?.permissions)) throw new Error("not_allowed");
     const d = db();
     const s = d.staff.find((x) => x.id === id);
     if (!s) throw new Error("staff_not_found");
@@ -725,14 +735,26 @@ export const demoRepo: Repo = {
 
   async listFollowups(opts) {
     let list = db().followups.filter((f) => inScope(staffHospital(db(), f.staff_member_id)));
+    const session = readDemoSessionUser();
+    const u = session ? usersOf(db()).find((x) => x.id === session.id) : null;
+    if (u?.role === "member") {
+      const assigned = new Set(db().staff.filter((s) => s.assigned_to === u.id).map((s) => s.id));
+      list = list.filter((f) => f.assigned_to === u.id || assigned.has(f.staff_member_id));
+    }
     if (opts?.staffId) list = list.filter((f) => f.staff_member_id === opts.staffId);
     return list.slice().sort((a, b) => a.due_date.localeCompare(b.due_date));
   },
 
   async setFollowupStatus(id, status: FollowupStatus) {
+    const session = readDemoSessionUser();
     const d = db();
     const f = d.followups.find((x) => x.id === id);
     if (!f) return;
+    const u = session ? usersOf(d).find((x) => x.id === session.id) : null;
+    if (u?.role === "member") {
+      const assigned = d.staff.some((s) => s.id === f.staff_member_id && s.assigned_to === u.id);
+      if (f.assigned_to !== u.id && !assigned) throw new Error("not_allowed");
+    }
     f.status = status;
     f.completed_at = status === "completed" ? nowIso() : null;
     audit(d, { action: `followup_${status}`, entity_type: "follow_up", entity_id: id });
@@ -740,6 +762,7 @@ export const demoRepo: Repo = {
   },
 
   async listEscalations(opts) {
+    if (readDemoSessionUser()?.role === "member") return [];
     let list = db().escalations.filter((e) => inScope(staffHospital(db(), e.staff_member_id)));
     if (opts?.staffId) list = list.filter((e) => e.staff_member_id === opts.staffId);
     return list.slice().sort((a, b) => b.created_at.localeCompare(a.created_at));

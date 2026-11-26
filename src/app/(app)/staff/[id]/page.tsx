@@ -13,6 +13,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState, EscalationStatusBadge, FollowupStatusBadge, Loading, PointsBadge, RegistrationBadge, ResultBadge, ScoreBadge } from "@/components/shared";
 import { useLoad } from "@/hooks/use-load";
 import { getRepo } from "@/lib/repo";
+import { evaluationHref } from "@/lib/evaluation";
 import { OPEN_ESCALATION_STATUSES } from "@/lib/evaluation";
 import { formatDate, formatDateTime, todayISO } from "@/lib/format";
 import { errorKey } from "@/lib/errors";
@@ -83,7 +84,7 @@ export default function StaffProfilePage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => router.back()}>{t("back")}</Button>
-          {formHref && <Link href={formHref}><Button size="sm">{t("evaluate")}</Button></Link>}
+          {formHref && <Link href={evaluationHref(formHref, staff)}><Button size="sm">{t("evaluate")}</Button></Link>}
           {canManage && <Link href={`/staff/${staff.id}/edit`}><Button size="sm" variant="secondary">{t("edit")}</Button></Link>}
           {canManage && !openEscalation && <Button size="sm" variant="outline" onClick={createEscalation} disabled={busy}>{t("create_escalation")}</Button>}
           {canManage && staff.manual_score !== 0 && <Button size="sm" variant="destructive" onClick={() => setResetOpen(true)}>{t("reset_score")}</Button>}

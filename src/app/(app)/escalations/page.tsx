@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState, EscalationStatusBadge, Loading, PageHeader, ScoreBadge } from "@/components/shared";
 import { useLoad } from "@/hooks/use-load";
 import { getRepo } from "@/lib/repo";
+import { useRequirePermission } from "@/hooks/use-require-permission";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -16,8 +17,9 @@ const OPEN = ["draft", "pending_review", "returned"];
 
 export default function EscalationsPage() {
   const { t, lang } = useLanguage();
+  const allowed = useRequirePermission("escalations.review");
   const [tab, setTab] = useState<Tab>("open");
-  const { data, loading, error } = useLoad(() => getRepo().listEscalations());
+  const { data, loading, error } = useLoad(() => getRepo().listEscalations(), [], allowed);
 
   const list = useMemo(() => {
     const all = data ?? [];
@@ -26,6 +28,7 @@ export default function EscalationsPage() {
     return all.filter((e) => e.status === tab);
   }, [data, tab]);
 
+  if (!allowed) return <Loading />;
   if (loading) return <Loading />;
   if (error) return <p className="p-4 text-destructive">{t("error")}</p>;
 

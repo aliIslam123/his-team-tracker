@@ -10,6 +10,7 @@ import type { Role } from "@/lib/types";
  *   staff.manage        create / edit / deactivate / delete staff members
  *   staff.import        bulk import staff from a sheet
  *   staff.assign        assign staff members to member accounts
+ *   staff.clear         delete a staff member's evaluations (admins only)
  *   users.manage        the /admin/users screen (create accounts, roles, resets)
  *   hospitals.manage    the /admin/hospitals screen (super_admin only — forced)
  *   activity.view       the /activity audit log screen
@@ -29,6 +30,7 @@ export const PERMISSION_KEYS = [
   "staff.manage",
   "staff.import",
   "staff.assign",
+  "staff.clear",
   "users.manage",
   "hospitals.manage",
   "activity.view",
@@ -53,6 +55,7 @@ export const ROLE_PERMISSION_DEFAULTS: Record<Role, PermissionKey[]> = {
     "staff.manage",
     "staff.import",
     "staff.assign",
+    "staff.clear",
     "users.manage",
     "activity.view",
     "escalations.review",
@@ -63,16 +66,14 @@ export const ROLE_PERMISSION_DEFAULTS: Record<Role, PermissionKey[]> = {
   ],
   supervisor: [
     "staff.manage",
-    "staff.import",
-    "users.manage",
-    "activity.view",
+    "staff.assign",
     "escalations.review",
     "followups.manage",
     "analytics.view",
     "beds.manage",
     "notifications.send",
   ],
-  member: ["analytics.view", "beds.assigned"],
+  member: ["beds.assigned"],
 };
 
 /** Human-readable labels for the admin screens (TranslationKey-compatible keys). */
@@ -80,6 +81,7 @@ export const PERMISSION_LABEL_KEY: Record<PermissionKey, string> = {
   "staff.manage": "perm_staff_manage",
   "staff.import": "perm_staff_import",
   "staff.assign": "perm_staff_assign",
+  "staff.clear": "perm_staff_clear",
   "users.manage": "perm_users_manage",
   "hospitals.manage": "perm_hospitals_manage",
   "activity.view": "perm_activity_view",

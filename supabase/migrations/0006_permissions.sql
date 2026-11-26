@@ -62,11 +62,11 @@ language sql stable security definer set search_path = public as $$
              when 'super_admin'    then true
              when 'hospital_admin' then p_permission in (
                'staff.manage','staff.import','staff.assign','users.manage',
-               'activity.view','escalations.review','followups.manage','analytics.view','beds.manage','notifications.send')
+               'activity.view','escalations.review','followups.manage','analytics.view','beds.manage','notifications.send','staff.clear')
              when 'supervisor'     then p_permission in (
-               'staff.manage','staff.import','activity.view',
-               'escalations.review','followups.manage','analytics.view','beds.manage','users.manage','notifications.send')
-             when 'member'         then p_permission in ('analytics.view','beds.assigned')
+               'staff.manage','staff.assign','escalations.review',
+               'followups.manage','analytics.view','beds.manage','notifications.send')
+             when 'member'         then p_permission in ('beds.assigned')
              else false
            end
          ) = true

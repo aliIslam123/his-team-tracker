@@ -6,6 +6,7 @@ import { useLanguage } from "@/components/providers/language-provider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState, Loading, PageHeader, ScoreBadge } from "@/components/shared";
 import { useLoad } from "@/hooks/use-load";
+import { useRequirePermission } from "@/hooks/use-require-permission";
 import { getRepo } from "@/lib/repo";
 import { EVAL_OPTIONS } from "@/lib/evaluation";
 import { JOB_TYPES } from "@/lib/validations";
@@ -20,11 +21,12 @@ function Chart({ children, height = 288 }: { children: React.ReactElement; heigh
 
 export default function AnalyticsPage() {
   const { t, lang } = useLanguage();
+  const allowed = useRequirePermission("analytics.view");
   const { data, loading, error } = useLoad(async () => {
     const repo = getRepo();
     const [staff, evaluations, departments] = await Promise.all([repo.listStaff(), repo.listEvaluations(), repo.listDepartments()]);
     return { staff, evaluations, departments };
-  });
+  }, [], allowed);
 
   const charts = useMemo(() => {
     if (!data) return null;
@@ -70,6 +72,7 @@ export default function AnalyticsPage() {
     };
   }, [data, lang, t]);
 
+  if (!allowed) return <Loading />;
   if (loading) return <Loading />;
   if (error || !charts) return <p className="p-4 text-destructive">{t("error")}</p>;
 

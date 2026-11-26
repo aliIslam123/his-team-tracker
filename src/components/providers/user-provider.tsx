@@ -6,6 +6,7 @@ import { hasSupabaseEnv } from "@/lib/env";
 import { clearDemoSession } from "@/lib/demo-auth";
 import { demoUserLogin, readDemoSessionUser } from "@/lib/repo/demo";
 import { getRepo } from "@/lib/repo";
+import { can, type PermissionKey } from "@/lib/permissions";
 import type { Hospital, Profile, Role } from "@/lib/types";
 
 interface SessionUser {
@@ -27,8 +28,10 @@ interface UserContextValue {
   /** Link to this hospital's public evaluation form (/h/<slug>) — null when unknown. */
   formHref: string | null;
   isSuper: boolean;
-  /** supervisor / hospital_admin / super_admin */
+  /** supervisor / hospital_admin / super_admin (respects per-user overrides). */
   canManage: boolean;
+  /** Check any permission with this user's overrides applied. */
+  canDo: (permission: PermissionKey) => boolean;
   /** Forced password change on first sign-in (or after an admin reset). */
   mustChangePassword: boolean;
   /** super_admin only: the hospital currently being viewed (null = all hospitals). */
@@ -56,6 +59,7 @@ function demoProfile(u: NonNullable<ReturnType<typeof readDemoSessionUser>>): Pr
     hospital_id: u.hospital_id,
     must_change_password: u.must_change_password,
     is_active: u.is_active,
+    permissions: u.permissions ?? null,
     created_at: u.created_at,
     updated_at: now,
   };
@@ -192,7 +196,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       hospitals,
       formHref: target?.is_active ? `/h/${target.slug}` : null,
       isSuper: role === "super_admin",
-      canManage: role === "super_admin" || role === "hospital_admin" || role === "supervisor",
+      canManage: can(role, "staff.manage", profile?.permissions),
+      canDo: (permission: PermissionKey) => can(role, permission, profile?.permissions),
       mustChangePassword: profile?.must_change_password === true,
       scope,
       setScope,

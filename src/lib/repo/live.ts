@@ -113,6 +113,7 @@ const mapFollowup = (r: any): FollowupRecord => ({
   id: r.id,
   staff_member_id: r.staff_member_id,
   staff_name: r.staff?.full_name ?? "-",
+  assigned_to: r.assigned_to ?? null,
   due_date: r.due_date,
   notes: r.notes,
   priority: r.priority,
@@ -385,7 +386,7 @@ export const liveRepo: Repo = {
       return q;
     };
     if (opts?.limit) {
-      const { data, error } = await base().limit(opts.limit);
+      const { data, error } = await withScope(base()).limit(opts.limit);
       if (error) fail(error);
       return ((data as any[]) ?? []).map(mapEvaluation);
     }

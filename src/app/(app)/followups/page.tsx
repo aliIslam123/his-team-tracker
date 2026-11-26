@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState, FollowupStatusBadge, Loading, PageHeader } from "@/components/shared";
 import { useLoad } from "@/hooks/use-load";
 import { getRepo } from "@/lib/repo";
+import { evaluationHref } from "@/lib/evaluation";
 import { formatDate, todayISO } from "@/lib/format";
 import { errorKey } from "@/lib/errors";
 import type { FollowupStatus } from "@/lib/types";
@@ -21,7 +22,11 @@ type Tab = (typeof TABS)[number];
 export default function FollowupsPage() {
   const { t, lang } = useLanguage();
   const { formHref } = useUser();
-  const [tab, setTab] = useState<Tab>("open");
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window === "undefined") return "open";
+    const f = new URLSearchParams(window.location.search).get("filter");
+    return f && (TABS as readonly string[]).includes(f) ? (f as Tab) : "open";
+  });
   const { data, loading, error, reload } = useLoad(() => getRepo().listFollowups());
   const today = todayISO();
 
@@ -103,7 +108,7 @@ export default function FollowupsPage() {
                             {open && <Button size="sm" onClick={() => setStatus(f.id, "completed")}>{t("mark_done")}</Button>}
                             {open && <Button size="sm" variant="outline" onClick={() => setStatus(f.id, "cancelled")}>{t("cancel_followup")}</Button>}
                             {!open && <Button size="sm" variant="outline" onClick={() => setStatus(f.id, "scheduled")}>{t("reopen")}</Button>}
-                            {formHref && <Link href={formHref}><Button size="sm" variant="secondary">{t("evaluate")}</Button></Link>}
+                            {formHref && <Link href={evaluationHref(formHref, { id: f.staff_member_id, full_name: f.staff_name, job_type: "", his_user_id: null })}><Button size="sm" variant="secondary">{t("evaluate")}</Button></Link>}
                           </div>
                         </td>
                       </tr>

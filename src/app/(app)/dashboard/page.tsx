@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState, EscalationStatusBadge, FollowupStatusBadge, Loading, PageHeader, PointsBadge, ResultBadge, ScoreBadge, StatCard } from "@/components/shared";
 import { useLoad } from "@/hooks/use-load";
+import { useRequirePermission } from "@/hooks/use-require-permission";
 import { getRepo } from "@/lib/repo";
 import { ESCALATION_THRESHOLD, OPEN_ESCALATION_STATUSES } from "@/lib/evaluation";
 import { formatDate, formatDateTime, todayISO } from "@/lib/format";
@@ -16,6 +17,7 @@ const OPEN_FOLLOWUP = ["pending", "scheduled", "in_progress"];
 export default function DashboardPage() {
   const { t, lang } = useLanguage();
   const { canManage, formHref } = useUser();
+  const allowed = useRequirePermission("analytics.view");
 
   const { data, loading, error } = useLoad(async () => {
     const repo = getRepo();
@@ -23,8 +25,9 @@ export default function DashboardPage() {
       repo.listStaff(), repo.listEvaluations(), repo.listFollowups(), repo.listEscalations(),
     ]);
     return { staff, evaluations, followups, escalations };
-  });
+  }, [], allowed);
 
+  if (!allowed) return <Loading />;
   if (loading) return <Loading />;
   if (error || !data) return <p className="p-4 text-destructive">{t("error")}</p>;
 
@@ -67,7 +70,7 @@ export default function DashboardPage() {
         <StatCard label={t("total_evaluations")} value={evaluations.length} href="/history" />
         <StatCard label={t("group_positive")} value={positive} tone="success" />
         <StatCard label={t("group_negative")} value={negative} tone="danger" />
-        <StatCard label={t("followups_due")} value={openFollowups.length} tone={overdue ? "warning" : "default"} hint={overdue ? `${t("overdue")}: ${overdue}` : undefined} href="/followups" />
+        <StatCard label={t("followups_due")} value={openFollowups.length} tone={overdue ? "warning" : "default"} hint={overdue ? `${t("overdue")}: ${overdue}` : undefined} href="/followups?filter=overdue" />
         <StatCard label={t("escalation_drafts_pending")} value={openEscalations.length} tone={openEscalations.length ? "danger" : "default"} href="/escalations" />
       </div>
 
