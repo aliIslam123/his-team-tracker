@@ -95,7 +95,7 @@ export default function EvaluationsHistoryPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b text-muted-foreground">
+                    <tr className="border-b border-border/70 bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                       <th className="p-2 text-start">{t("date_time")}</th>
                       <th className="p-2 text-start">{t("full_name")}</th>
                       <th className="p-2 text-start">{t("outcome")}</th>
@@ -107,7 +107,7 @@ export default function EvaluationsHistoryPage() {
                   </thead>
                   <tbody>
                     {shown.map((e) => (
-                      <tr key={e.id} className="border-b align-top hover:bg-muted/50">
+                      <tr key={e.id} className="border-b border-border/60 align-top hover:bg-muted/40">
                         <td className="whitespace-nowrap p-2">{formatDateTime(e.created_at, lang)}</td>
                         <td className="p-2 font-medium"><Link href={`/staff/${e.staff_member_id}`} className="hover:underline">{e.staff_name}</Link></td>
                         <td className="p-2"><ResultBadge id={e.result} /></td>

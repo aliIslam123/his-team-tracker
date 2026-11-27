@@ -104,7 +104,7 @@ function GroupTools({ bed, group, onToday, onToggleAll }: { bed: BedRecord; grou
   const allLabel = complete ? t("beds_untick_all") : t("beds_tick_all");
   return (
     <div className="flex items-center gap-1">
-      <span className={cn("rounded-full px-2 py-0.5 text-xs tabular-nums", complete ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" : "bg-secondary text-secondary-foreground")}>
+      <span className={cn("rounded-full px-2 py-0.5 text-xs tabular-nums", complete ? "bg-success/10 text-success" : "bg-secondary text-secondary-foreground")}>
         {p.done}/{p.total}
       </span>
       <Button type="button" variant="ghost" size="icon" className="h-7 w-7" title={t("beds_set_today")} aria-label={t("beds_set_today")} onClick={onToday}>
@@ -121,7 +121,7 @@ function BedIdentity({ bed }: { bed: BedRecord }) {
   const { t } = useLanguage();
   return (
     <div className="flex items-start gap-2">
-      <span className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: `hsl(${ownerHue(bed.owner_name)} 65% 50%)` }} aria-hidden />
+      <span className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: `hsl(${ownerHue(bed.owner_name)} 45% 55%)` }} aria-hidden />
       <div className="min-w-0">
         <p className="font-semibold leading-tight">
           {t("beds_bed_label").replace("{n}", String(bed.bed_no))}

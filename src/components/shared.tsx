@@ -9,10 +9,10 @@ import type { EscalationStatus, FollowupStatus } from "@/lib/types";
 
 export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: React.ReactNode }) {
   return (
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1 className="text-2xl font-bold">{title}</h1>
-        {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold leading-tight tracking-tight">{title}</h1>
+        {description && <p className="text-sm text-muted-foreground">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
@@ -35,30 +35,40 @@ export function Loading() {
 
 export function EmptyState({ text }: { text?: string }) {
   const { t } = useLanguage();
-  return <p className="py-8 text-center text-sm text-muted-foreground">{text ?? t("no_data")}</p>;
+  return (
+    <p className="my-1 rounded-xl border border-dashed border-border/80 px-4 py-8 text-center text-sm text-muted-foreground">
+      {text ?? t("no_data")}
+    </p>
+  );
 }
 
 const TONES = {
-  default: "",
-  success: "text-success",
-  danger: "text-destructive",
-  warning: "text-warning",
-  info: "text-info",
+  default: { value: "text-foreground", bar: "bg-border" },
+  success: { value: "text-success", bar: "bg-success/60" },
+  danger: { value: "text-destructive", bar: "bg-destructive/60" },
+  warning: { value: "text-warning", bar: "bg-warning/60" },
+  info: { value: "text-info", bar: "bg-info/60" },
 } as const;
 
 export function StatCard({
   label, value, hint, tone = "default", href,
 }: { label: string; value: React.ReactNode; hint?: string; tone?: keyof typeof TONES; href?: string }) {
   const body = (
-    <Card className={cn(href && "transition-colors hover:bg-accent/40")}>
-      <CardContent className="p-4">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className={cn("mt-1 text-2xl font-bold", TONES[tone])}>{value}</p>
-        {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
+    <Card
+      className={cn(
+        "relative h-full overflow-hidden",
+        href && "transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+      )}
+    >
+      <span className={cn("absolute inset-y-3 start-0 w-1 rounded-full", TONES[tone].bar)} aria-hidden />
+      <CardContent className="p-4 ps-5">
+        <p className="truncate text-xs font-medium text-muted-foreground">{label}</p>
+        <p className={cn("mt-1.5 text-2xl font-semibold tabular-nums tracking-tight", TONES[tone].value)}>{value}</p>
+        {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
       </CardContent>
     </Card>
   );
-  return href ? <Link href={href}>{body}</Link> : body;
+  return href ? <Link href={href} className="block h-full">{body}</Link> : body;
 }
 
 export function ScoreBadge({ score }: { score: number }) {

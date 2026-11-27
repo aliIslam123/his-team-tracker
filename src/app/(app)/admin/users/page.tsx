@@ -192,7 +192,7 @@ export default function UsersAdminPage() {
   };
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="space-y-4">
       <PageHeader
         title={t("users")}
         description={t("demo_users_hint")}

@@ -93,7 +93,7 @@ export default function HospitalsAdminPage() {
   };
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="space-y-4">
       <PageHeader
         title={t("hospitals")}
         description={t("hospital_slug_hint")}

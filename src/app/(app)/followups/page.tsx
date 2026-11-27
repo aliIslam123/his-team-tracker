@@ -86,7 +86,7 @@ export default function FollowupsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-muted-foreground">
+                  <tr className="border-b border-border/70 bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                     <th className="p-2 text-start">{t("full_name")}</th>
                     <th className="p-2 text-start">{t("followup_date")}</th>
                     <th className="p-2 text-start">{t("notes")}</th>
@@ -98,7 +98,7 @@ export default function FollowupsPage() {
                   {list.map((f) => {
                     const open = OPEN.includes(f.status);
                     return (
-                      <tr key={f.id} className="border-b hover:bg-muted/50">
+                      <tr key={f.id} className="border-b border-border/60 hover:bg-muted/40">
                         <td className="p-2 font-medium"><Link href={`/staff/${f.staff_member_id}`} className="hover:underline">{f.staff_name}</Link></td>
                         <td className="whitespace-nowrap p-2">{formatDate(f.due_date, lang)}</td>
                         <td className="p-2 text-muted-foreground">{f.notes || "-"}</td>

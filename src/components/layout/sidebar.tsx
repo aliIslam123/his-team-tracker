@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Users, ClipboardList, CalendarClock, BedDouble, AlertTriangle, BarChart3, Bell, Upload, ScrollText, Settings, LogOut, Building2, UserCog, GitCompareArrows, ListTodo,
+  LayoutDashboard, Users, ClipboardList, CalendarClock, BedDouble, AlertTriangle, BarChart3, Bell, Upload, ScrollText, Settings, LogOut, Building2, UserCog, GitCompareArrows, ListTodo, FileText,
 } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { useUser } from "@/components/providers/user-provider";
@@ -43,6 +43,17 @@ const SECTIONS: { id: NavItem["section"]; label: string }[] = [
   { id: "system", label: "nav_section_system" },
 ];
 
+/** "Ali Abuelsoud" -> "AA" for the little avatar in the user card. */
+function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
 /** The nav list itself — rendered inside the desktop sidebar and the mobile drawer. */
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
@@ -54,25 +65,39 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex h-full flex-col">
-      <Link href={role === "member" ? "/my-tasks" : "/dashboard"} onClick={onNavigate} className="flex items-center gap-3 border-b p-4">
+      <Link
+        href={role === "member" ? "/my-tasks" : "/dashboard"}
+        onClick={onNavigate}
+        className="flex h-16 items-center border-b border-border/70 px-4"
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="Holool His" className="h-9 w-auto max-w-[170px] object-contain" />
       </Link>
+
       {profile && (
-        <div className="mx-2 mt-2 rounded-md bg-muted/60 px-3 py-2">
-          <p className="truncate text-sm font-medium">{profile.full_name}</p>
-          <p className="truncate text-xs text-muted-foreground">
-            {role ? t(`role_${role}`) : "—"}{hospital ? ` · ${hospital.name}` : ""}
-          </p>
+        <div className="mx-3 mt-3 flex items-center gap-3 rounded-xl bg-muted/60 p-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+            {initials(profile.full_name) || "—"}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium leading-tight">{profile.full_name}</p>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              {role ? t(`role_${role}`) : "—"}
+              {hospital ? ` · ${hospital.name}` : ""}
+            </p>
+          </div>
         </div>
       )}
-      <nav className="flex-1 space-y-1 overflow-y-auto p-2">
+
+      <nav className="flex-1 space-y-5 overflow-y-auto p-3">
         {SECTIONS.map((section) => {
           const group = items.filter((i) => i.section === section.id);
           if (group.length === 0) return null;
           return (
-            <div key={section.id} className="space-y-1 pb-2">
-              <p className="px-3 pt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t(section.label)}</p>
+            <div key={section.id} className="space-y-1">
+              <p className="px-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/75">
+                {t(section.label)}
+              </p>
               {group.map((item) => {
                 const Icon = item.icon;
                 const active = pathname === item.href || pathname.startsWith(item.href + "/");
@@ -83,12 +108,15 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                     onClick={onNavigate}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                      active ? "bg-primary text-primary-foreground" : "hover:bg-accent hover:text-accent-foreground"
+                      "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                      active
+                        ? "bg-accent font-medium text-accent-foreground"
+                        : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
                     )}
                   >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <span>{t(item.key)}</span>
+                    {active && <span className="absolute inset-y-2 start-0 w-0.5 rounded-full bg-primary" aria-hidden />}
+                    <Icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
+                    <span className="truncate">{t(item.key)}</span>
                   </Link>
                 );
               })}
@@ -96,16 +124,22 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           );
         })}
       </nav>
-      <div className="space-y-1 border-t p-2">
+
+      <div className="space-y-1 border-t border-border/70 p-3">
         {formHref && (
-          <Link href={formHref} onClick={onNavigate} className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground">
+          <Link
+            href={formHref}
+            onClick={onNavigate}
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+          >
+            <FileText className="h-4 w-4" />
             {t("evaluation_form")}
           </Link>
         )}
         <button
           type="button"
           onClick={() => { onNavigate?.(); signOut(); }}
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
         >
           <LogOut className="h-4 w-4" />
           {t("logout")}
@@ -117,7 +151,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function Sidebar() {
   return (
-    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-e bg-card md:block no-print">
+    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-e border-border/70 bg-card md:block no-print">
       <SidebarContent />
     </aside>
   );

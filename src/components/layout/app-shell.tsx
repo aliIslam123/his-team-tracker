@@ -26,8 +26,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar />
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden no-print" role="dialog" aria-modal="true">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          <div className="absolute inset-y-0 start-0 w-64 max-w-[85vw] bg-card shadow-xl">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setMobileOpen(false)} />
+          <div className="absolute inset-y-0 start-0 w-64 max-w-[85vw] border-e border-border/70 bg-card shadow-xl">
             <SidebarContent onNavigate={() => setMobileOpen(false)} />
           </div>
         </div>
@@ -35,10 +35,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onMenuClick={() => setMobileOpen(true)} />
         {mode === "demo" && (
-          <div className="border-b bg-warning/10 px-4 py-1.5 text-center text-xs text-warning no-print">{t("demo_banner")}</div>
+          <div className="border-b border-warning/20 bg-warning/10 px-4 py-1.5 text-center text-xs text-warning no-print">{t("demo_banner")}</div>
         )}
-        <main className="flex-1 p-3 sm:p-4 md:p-6">{children}</main>
-        <footer className="border-t py-3 text-center text-xs text-muted-foreground no-print">
+        <main className="flex-1 p-3 sm:p-5 lg:p-7">{children}</main>
+        <footer className="border-t border-border/60 py-4 text-center text-xs text-muted-foreground no-print">
           created by Ali Abuelsoud and Ismail Ali
         </footer>
       </div>

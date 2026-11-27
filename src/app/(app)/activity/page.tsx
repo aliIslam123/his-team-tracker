@@ -50,7 +50,7 @@ export default function ActivityLogPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-muted-foreground">
+                  <tr className="border-b border-border/70 bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                     <th className="p-2 text-start">{t("audit_timestamp")}</th>
                     <th className="p-2 text-start">{t("audit_action")}</th>
                     <th className="p-2 text-start">{t("audit_entity")}</th>
@@ -60,7 +60,7 @@ export default function ActivityLogPage() {
                 </thead>
                 <tbody>
                   {filtered.map((a) => (
-                    <tr key={a.id} className="border-b align-top hover:bg-muted/50">
+                    <tr key={a.id} className="border-b border-border/60 align-top hover:bg-muted/40">
                       <td className="whitespace-nowrap p-2">{formatDateTime(a.created_at, lang)}</td>
                       <td className="p-2"><Badge variant="secondary">{a.action}</Badge></td>
                       <td className="p-2">{a.entity_type}</td>

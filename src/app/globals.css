@@ -1,54 +1,55 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4f7fb;
-  --foreground: #0f172a;
+  /* Calm, desaturated palette: a soft steel-blue brand on cool neutral greys. */
+  --background: #f5f7fa;
+  --foreground: #1c2634;
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #1c2634;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #1e3a8a;
+  --popover-foreground: #1c2634;
+  --primary: #2f6b8f;
   --primary-foreground: #ffffff;
-  --secondary: #e2e8f0;
-  --secondary-foreground: #0f172a;
+  --secondary: #eef2f7;
+  --secondary-foreground: #334155;
   --muted: #f1f5f9;
-  --muted-foreground: #475569;
-  --accent: #dbeafe;
-  --accent-foreground: #1e3a8a;
-  --destructive: #dc2626;
+  --muted-foreground: #64748b;
+  --accent: #e9f1f6;
+  --accent-foreground: #245670;
+  --destructive: #c2453f;
   --destructive-foreground: #ffffff;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #1e3a8a;
-  --success: #16a34a;
-  --warning: #ea580c;
-  --info: #0284c7;
-  --radius: 0.625rem;
+  --border: #e3e8ef;
+  --input: #dbe2ea;
+  --ring: #2f6b8f;
+  --success: #17805f;
+  --warning: #b26a12;
+  --info: #2b6cb0;
+  --radius: 0.75rem;
 }
 
 .dark {
-  --background: #0b1220;
-  --foreground: #e2e8f0;
-  --card: #111a2e;
-  --card-foreground: #e2e8f0;
-  --popover: #111a2e;
-  --popover-foreground: #e2e8f0;
-  --primary: #60a5fa;
-  --primary-foreground: #0b1220;
-  --secondary: #1f2a44;
-  --secondary-foreground: #e2e8f0;
-  --muted: #1a2338;
-  --muted-foreground: #94a3b8;
-  --accent: #1e3a8a;
-  --accent-foreground: #dbeafe;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --border: #24324d;
-  --input: #24324d;
-  --ring: #60a5fa;
-  --success: #22c55e;
-  --warning: #fb923c;
-  --info: #38bdf8;
+  --background: #0d141d;
+  --foreground: #dbe3ec;
+  --card: #141d29;
+  --card-foreground: #dbe3ec;
+  --popover: #141d29;
+  --popover-foreground: #dbe3ec;
+  --primary: #7fb6d4;
+  --primary-foreground: #0d141d;
+  --secondary: #1d2836;
+  --secondary-foreground: #dbe3ec;
+  --muted: #182230;
+  --muted-foreground: #93a3b8;
+  --accent: #1b2d3d;
+  --accent-foreground: #cfe6f2;
+  --destructive: #f0736b;
+  --destructive-foreground: #0d141d;
+  --border: #22303f;
+  --input: #22303f;
+  --ring: #7fb6d4;
+  --success: #34c48d;
+  --warning: #e0a23c;
+  --info: #6aa9e0;
 }
 
 @theme inline {
@@ -84,14 +85,40 @@
 * { border-color: var(--border); }
 html { -webkit-text-size-adjust: 100%; }
 body {
-  background: var(--background);
+  background-color: var(--background);
+  background-image: radial-gradient(
+    1100px 520px at 100% -8%,
+    color-mix(in srgb, var(--primary) 7%, transparent),
+    transparent 62%
+  );
+  background-attachment: fixed;
   color: var(--foreground);
   font-family: var(--font-arabic), "Segoe UI", Tahoma, system-ui, sans-serif;
   font-size: 16px;
-  line-height: 1.6;
+  line-height: 1.65;
   overflow-x: hidden;
   padding-bottom: env(safe-area-inset-bottom);
 }
+.dark body {
+  background-image: radial-gradient(
+    1100px 520px at 100% -8%,
+    color-mix(in srgb, var(--primary) 9%, transparent),
+    transparent 62%
+  );
+}
+::selection { background: color-mix(in srgb, var(--primary) 22%, transparent); }
+h1, h2, h3, h4 { letter-spacing: -0.011em; }
+/* Quiet, consistent scrollbars instead of the chunky OS default. */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--muted-foreground) 35%, transparent) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 9999px;
+  background-clip: content-box;
+  background-color: color-mix(in srgb, var(--muted-foreground) 32%, transparent);
+}
+*::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--muted-foreground) 55%, transparent); }
 /* Never let an image (logo, preview) force a horizontal scroll on a phone. */
 img { max-width: 100%; height: auto; }
 /* 16px inputs stop iOS Safari from zooming in when a field is focused. */

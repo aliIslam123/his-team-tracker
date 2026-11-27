@@ -33,7 +33,7 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
   }, [pathname, scope]);
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center gap-1 border-b bg-background/80 px-2 backdrop-blur no-print sm:gap-2 sm:px-4">
+    <header className="sticky top-0 z-40 flex h-16 items-center gap-1 border-b border-border/70 bg-background/75 px-2 backdrop-blur-md no-print sm:gap-2 sm:px-4">
       <Button variant="ghost" size="icon" className="md:hidden" onClick={onMenuClick} aria-label={t("menu")}>
         <Menu className="h-5 w-5" />
       </Button>

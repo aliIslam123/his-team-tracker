@@ -38,7 +38,7 @@ export default function ComparisonPage() {
     h.staff_total > 0 ? Math.round((h.staff_registered / h.staff_total) * 100) : 0;
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="space-y-4">
       <PageHeader title={t("comparison")} description={t("comparison_desc")} />
 
       {loading ? (
@@ -50,7 +50,7 @@ export default function ComparisonPage() {
           {/* cards: one per hospital, easy to scan on mobile */}
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {data.map((h) => (
-              <div key={h.hospital_id} className="rounded-lg border bg-card p-4">
+              <div key={h.hospital_id} className="rounded-2xl border border-border/70 bg-card p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
                 <div className="mb-3 flex items-start justify-between gap-2">
                   <div>
                     <p className="font-semibold">{h.hospital_name}</p>
@@ -78,9 +78,9 @@ export default function ComparisonPage() {
                     [t("comparison_beds"), h.beds_total],
                     [t("comparison_awaiting_engineer"), h.pending_beds],
                   ].map(([label, value]) => (
-                    <div key={String(label)} className="rounded-md bg-muted p-2">
+                    <div key={String(label)} className="rounded-lg bg-muted/60 p-2">
                       <p className="text-xs text-muted-foreground">{label}</p>
-                      <p className="text-lg font-bold">{value}</p>
+                      <p className="text-lg font-semibold tabular-nums">{value}</p>
                     </div>
                   ))}
                 </div>

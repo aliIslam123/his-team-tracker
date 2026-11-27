@@ -195,7 +195,7 @@ export default function StaffPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b text-muted-foreground">
+                    <tr className="border-b border-border/70 bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                       <th className="p-2 text-start">{t("full_name")}</th>
                       <th className="p-2 text-start">{t("job_type")}</th>
                       <th className="p-2 text-start">{t("department")}</th>
@@ -208,7 +208,7 @@ export default function StaffPage() {
                   </thead>
                   <tbody>
                     {shown.map((s) => (
-                      <tr key={s.id} className="border-b hover:bg-muted/50">
+                      <tr key={s.id} className="border-b border-border/60 hover:bg-muted/40">
                         <td className="p-2 font-medium">
                           <Link href={`/staff/${s.id}`} className="hover:underline">{s.full_name}</Link>
                           {s.needs_review && <Badge variant="warning" className="ms-2">{t("needs_verification")}</Badge>}
